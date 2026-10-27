@@ -1,0 +1,751 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>期中刷題機</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* 版面概念：一張「題庫打孔卡」當首頁的進度總覽；刷題時一次一張卡片，作答後立刻展開解析 */
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --surface-2:#F6F9F8; --ink:#14282C; --muted:#5A6B6E; --line:#D3DDDB;
+  --accent:#0F5E6E; --accent-soft:#DCEDEF; --accent-ink:#FFFFFF;
+  --mark:#D46A12; --mark-soft:#FCEBDC;
+  --good:#2C7A4B; --good-soft:#E1F2E7; --bad:#B42F3C; --bad-soft:#FBE6E8;
+  --hole:#FFFFFF; --hole-line:#B9C7C5; --card:#F7F4EC; --card-line:#E2DCCB;
+  --shadow:0 1px 2px rgba(20,40,44,.06),0 6px 20px rgba(20,40,44,.06);
+  --f-ui:"IBM Plex Sans","Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-cjk:"Noto Sans TC","PingFang TC","Microsoft JhengHei","IBM Plex Sans",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono","Noto Sans TC",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1618; --surface:#162225; --surface-2:#1B2A2D; --ink:#E2ECEA; --muted:#93A7A9; --line:#2A3B3E;
+  --accent:#58B7C6; --accent-soft:#16363C; --accent-ink:#0B1A1D;
+  --mark:#F0A24D; --mark-soft:#3A2A17;
+  --good:#5CC489; --good-soft:#163323; --bad:#F27D88; --bad-soft:#3D1C21;
+  --hole:#0E1618; --hole-line:#3A4D50; --card:#1E2A2A; --card-line:#33433F;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1618; --surface:#162225; --surface-2:#1B2A2D; --ink:#E2ECEA; --muted:#93A7A9; --line:#2A3B3E;
+  --accent:#58B7C6; --accent-soft:#16363C; --accent-ink:#0B1A1D;
+  --mark:#F0A24D; --mark-soft:#3A2A17;
+  --good:#5CC489; --good-soft:#163323; --bad:#F27D88; --bad-soft:#3D1C21;
+  --hole:#0E1618; --hole-line:#3A4D50; --card:#1E2A2A; --card-line:#33433F;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:16px;line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:860px;margin:0 auto}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--mark);outline-offset:2px}
+.mono{font-family:var(--f-mono)}
+h1,h2,h3{text-wrap:balance;margin:0}
+
+/* ---------- 頁首 ---------- */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;gap:12px;padding-block:14px 12px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0;flex:1;flex-wrap:wrap}
+.brand h1{font-family:var(--f-cjk);font-weight:900;font-size:1.35rem;letter-spacing:.02em}
+.brand .sub{font-family:var(--f-mono);font-size:.74rem;color:var(--muted);letter-spacing:.04em}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap;background:var(--surface)}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--hole-line);display:inline-block}
+.sync.on i{background:var(--good)} .sync.busy i{background:var(--mark)}
+
+/* ---------- 首頁 ---------- */
+.home{display:grid;gap:22px;padding-top:22px}
+.lead{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:flex-end;justify-content:space-between}
+.lead p{margin:0;color:var(--muted);max-width:52ch;font-size:.95rem}
+.kpis{display:flex;gap:22px;flex-wrap:wrap}
+.kpi b{display:block;font-family:var(--f-mono);font-size:1.6rem;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi span{font-size:.75rem;color:var(--muted);letter-spacing:.04em}
+.kpi.good b{color:var(--good)} .kpi.bad b{color:var(--bad)}
+
+/* 打孔卡 */
+.card-board{position:relative;background:var(--card);border:1px solid var(--card-line);border-radius:6px;padding:18px 18px 14px 22px;
+  clip-path:polygon(18px 0,100% 0,100% 100%,0 100%,0 18px)}
+.card-board::before{content:"";position:absolute;left:0;top:0;width:26px;height:26px;background:linear-gradient(135deg,var(--card-line) 50%,transparent 50%);opacity:.9}
+.board-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.board-head h2{font-family:var(--f-mono);font-size:.78rem;font-weight:600;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.75rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.chrow{display:grid;grid-template-columns:3.4rem 1fr;gap:10px;padding-block:8px;border-top:1px dashed var(--card-line)}
+.chrow:first-of-type{border-top:0}
+.chlabel{font-family:var(--f-mono);font-weight:600;font-size:.82rem;padding-top:2px}
+.chlabel small{display:block;font-weight:400;color:var(--muted);font-size:.7rem}
+.groups{display:flex;flex-wrap:wrap;gap:10px 16px;min-width:0}
+.grp{display:flex;flex-direction:column;gap:4px}
+.grp-name{font-size:.68rem;color:var(--muted);letter-spacing:.06em}
+.holes{display:flex;flex-wrap:wrap;gap:4px}
+.hole{width:11px;height:20px;border-radius:2px;border:1px solid var(--hole-line);background:var(--hole);padding:0}
+.hole.ok{background:var(--accent);border-color:var(--accent)}
+.hole.ng{background:var(--bad);border-color:var(--bad)}
+.hole:hover{transform:translateY(-1px)}
+.sw{width:9px;height:15px;border-radius:2px;border:1px solid var(--hole-line);background:var(--hole);display:inline-block}
+.sw.ok{background:var(--accent);border-color:var(--accent)} .sw.ng{background:var(--bad);border-color:var(--bad)}
+
+/* 設定 */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);display:grid;gap:16px}
+.panel h2{font-family:var(--f-cjk);font-size:1.05rem;font-weight:700}
+.field{display:grid;grid-template-columns:5.5rem 1fr;gap:10px;align-items:start}
+.field>span{font-size:.85rem;color:var(--muted);padding-top:7px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:5px 14px;font-size:.9rem;transition:background .15s,border-color .15s}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip .n{font-family:var(--f-mono);font-size:.75rem;opacity:.75;margin-left:4px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 16px;font-weight:500;display:inline-flex;align-items:center;gap:8px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.warn{color:var(--bad)}
+.btn.armed{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn kbd,.kbd{white-space:nowrap;font-family:var(--f-mono);font-size:.7rem;border:1px solid currentColor;border-radius:4px;padding:0 5px;opacity:.7}
+.note{font-size:.8rem;color:var(--muted);margin:0}
+.chstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.chstat{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface-2);min-width:0}
+.chstat h3{font-family:var(--f-mono);font-size:.8rem;font-weight:600}
+.chstat p{margin:2px 0 6px;font-size:.78rem;color:var(--muted)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.bar .b-ok{background:var(--accent)} .bar .b-ng{background:var(--bad)}
+
+/* ---------- 刷題 ---------- */
+.practice{padding-top:16px;display:grid;gap:14px}
+.rbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rbar .pos{font-family:var(--f-mono);font-size:.85rem;font-variant-numeric:tabular-nums}
+.track{flex:1 1 140px;min-width:100px;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.track i{display:block;height:100%;background:var(--accent);transition:width .25s}
+.score{font-family:var(--f-mono);font-size:.82rem;display:flex;gap:10px}
+.score .o{color:var(--good)} .score .x{color:var(--bad)}
+.qcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:20px 20px 18px;display:grid;gap:16px;min-width:0}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.tag{border-radius:4px;padding:1px 8px;font-weight:600;letter-spacing:.04em}
+.tag.tf{background:var(--accent-soft);color:var(--accent)} .tag.mc{background:var(--accent-soft);color:var(--accent)}
+.tag.fill,.tag.table{background:var(--mark-soft);color:var(--mark)} .tag.qa{background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.qtext{font-family:var(--f-cjk);font-size:1.12rem;line-height:1.8;margin:0}
+.qtext b{color:var(--accent)}
+.opts{display:grid;gap:10px}
+.opt{display:grid;grid-template-columns:2rem 1fr;gap:4px 10px;align-items:start;text-align:left;border:1.5px solid var(--line);border-radius:9px;background:var(--surface-2);padding:11px 14px;font-family:var(--f-cjk);font-size:1rem;transition:border-color .15s,background .15s}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt .k{font-family:var(--f-mono);font-weight:600;width:1.7rem;height:1.7rem;border-radius:6px;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);font-size:.85rem}
+.opt .t{padding-top:2px;min-width:0}
+.opt .w{grid-column:2;font-size:.84rem;color:var(--muted);line-height:1.6}
+.opt:disabled{cursor:default}
+.opt.right{border-color:var(--good);background:var(--good-soft)} .opt.right .k{background:var(--good);border-color:var(--good);color:#fff}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)} .opt.wrong .k{background:var(--bad);border-color:var(--bad);color:#fff}
+.opt.dim{opacity:.72}
+.tfopts{grid-template-columns:1fr 1fr}
+.tfopts .opt{grid-template-columns:1fr;justify-items:center;text-align:center;padding:16px}
+.tfopts .opt .k{width:auto;height:auto;border:0;background:none;font-size:1.6rem;font-family:var(--f-cjk)}
+.tfopts .opt.right .k,.tfopts .opt.wrong .k{background:none;color:inherit}
+.tfopts .opt .w{grid-column:1}
+
+input.blank{font:inherit;font-family:var(--f-mono);font-size:.95rem;width:8.5em;max-width:100%;border:0;border-bottom:2px solid var(--accent);background:var(--accent-soft);color:var(--ink);padding:2px 6px;border-radius:4px 4px 0 0;margin:0 2px}
+input.blank.ok{border-color:var(--good);background:var(--good-soft)}
+input.blank.ng{border-color:var(--bad);background:var(--bad-soft)}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table.ft{border-collapse:collapse;width:100%;font-size:.9rem}
+table.ft th,table.ft td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+table.ft th{font-weight:600;font-size:.8rem;color:var(--muted);background:var(--surface-2);white-space:nowrap}
+table.ft td:first-child{font-family:var(--f-mono);font-weight:600;white-space:nowrap}
+table.ft input{font-family:var(--f-mono);font-size:.88rem;width:100%;min-width:7.5em;border:1px solid var(--line);border-radius:5px;padding:4px 6px;background:var(--surface-2);color:var(--ink)}
+table.ft.wide input{min-width:23em}
+table.ft input.ok{border-color:var(--good);background:var(--good-soft)} table.ft input.ng{border-color:var(--bad);background:var(--bad-soft)}
+.cellans{display:block;font-family:var(--f-mono);font-size:.78rem;color:var(--good);margin-top:3px;word-break:break-all}
+
+/* 單字卡 */
+.flip{perspective:1400px}
+.flip-in{position:relative;display:grid;transition:transform .5s cubic-bezier(.3,.7,.2,1);transform-style:preserve-3d}
+.flip.on .flip-in{transform:rotateY(180deg)}
+.face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow);padding:20px;display:grid;gap:14px;align-content:start;min-width:0}
+.face.back{transform:rotateY(180deg);background:var(--surface)}
+.face.front{cursor:pointer;min-height:15rem}
+.hint{font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:8px;margin-top:auto}
+.back h4{margin:0;font-family:var(--f-mono);font-size:.74rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.ans{font-family:var(--f-cjk);line-height:1.8}
+.ans ul,.ans ol,.exp ul,.exp ol{margin:.3em 0;padding-left:1.3em}
+.ans code,.exp code,.qtext code{font-family:var(--f-mono);font-size:.9em;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 4px;word-break:break-all}
+.selfgrade{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* 回饋 */
+.fb{border-radius:9px;padding:14px 16px;display:grid;gap:8px;border:1px solid var(--line);background:var(--surface-2);min-width:0}
+.fb.ok{border-color:var(--good);background:var(--good-soft)}
+.fb.ng{border-color:var(--bad);background:var(--bad-soft)}
+.verdict{font-family:var(--f-cjk);font-weight:700;font-size:1.05rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fb.ok .verdict{color:var(--good)} .fb.ng .verdict{color:var(--bad)}
+.correct{font-family:var(--f-cjk);font-size:.95rem}
+.correct b{font-family:var(--f-mono)}
+.why h4{margin:0 0 2px;font-size:.8rem;color:var(--muted);letter-spacing:.06em}
+.exp{font-family:var(--f-cjk);font-size:.95rem;line-height:1.8;margin:0}
+.ref{font-family:var(--f-mono);font-size:.74rem;color:var(--muted)}
+.override{justify-self:start;font-size:.8rem;border:1px dashed var(--muted);border-radius:6px;background:transparent;padding:3px 10px;color:var(--muted)}
+.nav{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* 結算 */
+.summary{padding-top:22px;display:grid;gap:18px}
+.big{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.big b{font-family:var(--f-mono);font-size:3rem;font-weight:600;line-height:1}
+.big span{color:var(--muted)}
+.wlist{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.wlist li{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px 12px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;min-width:0}
+.wlist .st{font-family:var(--f-mono);font-weight:700}
+.wlist .st.ok{color:var(--good)} .wlist .st.ng{color:var(--bad)}
+.wlist .qq{font-size:.92rem;min-width:0;overflow-wrap:anywhere}
+.wlist .mm{grid-column:2;font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
+
+@media (max-width:560px){
+  .field{grid-template-columns:1fr;gap:6px} .field>span{padding-top:0}
+  .chstats{grid-template-columns:1fr}
+  .qcard,.face{padding:16px}
+  .tfopts .opt{padding:12px}
+  .chrow{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion: reduce){.flip-in,.track i,.chip,.opt{transition:none}}
+</style>
+
+<header class="top">
+  <div class="brand"><h1>期中刷題機</h1><span class="sub">CH1–CH3 · 115 題</span></div>
+  <span class="sync" id="sync" title="作答紀錄存在這台裝置的瀏覽器"><i></i><span id="syncText">存在這台裝置</span></span>
+</header>
+
+<main class="wrap">
+<!-- ================= 首頁 ================= -->
+<section id="vHome" class="home">
+  <div class="lead">
+    <p>電子計算機概論期中題庫。是非、選擇題直接點選；填充題打字作答、自動批改；問答題用單字卡翻面自評。每一題作答後都會告訴你「為什麼是這個答案」。</p>
+    <div class="kpis">
+      <div class="kpi"><b id="kDone">0</b><span>已作答 / 115</span></div>
+      <div class="kpi good"><b id="kOk">0</b><span>目前答對</span></div>
+      <div class="kpi bad"><b id="kNg">0</b><span>錯題本</span></div>
+    </div>
+  </div>
+
+  <div class="card-board" aria-label="題庫進度">
+    <div class="board-head">
+      <h2>題庫打孔卡</h2>
+      <div class="legend"><span><i class="sw"></i>沒做過</span><span><i class="sw ok"></i>最近一次答對</span><span><i class="sw ng"></i>最近一次答錯</span></div>
+    </div>
+    <div id="board"></div>
+    <p class="note" style="margin-top:6px">點任何一個孔，就從那一題開始刷那一組。</p>
+  </div>
+
+  <div class="chstats" id="chstats"></div>
+
+  <div class="panel">
+    <h2>這一輪要刷什麼</h2>
+    <div class="field"><span>章節</span><div class="chips" id="fCh"></div></div>
+    <div class="field"><span>題型</span><div class="chips" id="fType"></div></div>
+    <div class="field"><span>只出</span><div class="chips" id="fFilter"></div></div>
+    <div class="field"><span>順序</span><div class="chips" id="fOrder"></div></div>
+    <div class="actions">
+      <button class="btn primary" id="startBtn" type="button">開始刷題</button>
+      <button class="btn" id="wrongBtn" type="button">只練錯題本</button>
+      <button class="btn" id="resumeBtn" type="button" hidden>繼續上一輪</button>
+    </div>
+    <p class="note">快捷鍵：選擇題按 <span class="kbd">1</span>–<span class="kbd">4</span>、是非題按 <span class="kbd">O</span> / <span class="kbd">X</span>、單字卡按空白鍵翻面，<span class="kbd">Enter</span> 送出或下一題，<span class="kbd">←</span> <span class="kbd">→</span> 前後切換。</p>
+  </div>
+
+  <div class="actions" style="justify-content:flex-end">
+    <button class="btn warn" id="resetBtn" type="button">清除作答紀錄</button>
+  </div>
+</section>
+
+<!-- ================= 刷題 ================= -->
+<section id="vPractice" class="practice" hidden>
+  <div class="rbar">
+    <button class="btn" id="exitBtn" type="button">← 回首頁</button>
+    <span class="pos" id="pos">1 / 1</span>
+    <div class="track"><i id="trackFill" style="width:0"></i></div>
+    <span class="score"><span class="o" id="sOk">○ 0</span><span class="x" id="sNg">× 0</span></span>
+  </div>
+  <div id="stage"></div>
+  <div class="nav">
+    <button class="btn" id="prevBtn" type="button">← 上一題</button>
+    <button class="btn primary" id="nextBtn" type="button">下一題 →</button>
+  </div>
+</section>
+
+<!-- ================= 結算 ================= -->
+<section id="vSummary" class="summary" hidden>
+  <div class="big"><b id="sumScore">0 / 0</b><span id="sumText"></span></div>
+  <div class="actions">
+    <button class="btn primary" id="retryWrongBtn" type="button">再練這輪錯的題目</button>
+    <button class="btn" id="homeBtn" type="button">回首頁</button>
+  </div>
+  <ul class="wlist" id="sumList"></ul>
+</section>
+</main>
+
+<script>
+const QUESTIONS = [{"ch": 1, "type": "tf", "n": 1, "q": "美國數學家 Blaise Pascal 發明了機械式的加法器 Pascaline。", "ans": false, "exp": "Pascal 是<b>法國</b>數學家，1642 年發明機械式加法器 Pascaline（第一個機械式計算器）。題目只改了國籍。是非題錯的地方幾乎都是這種「張冠李戴」：國籍、公司、名稱、年份。", "page": 3, "unit": "計算機大事記", "id": "1-tf-1"}, {"ch": 1, "type": "tf", "n": 2, "q": "在美語中，Xerox machine 是 copy machine 的同義字。", "ans": true, "exp": "1959 年全錄公司（Xerox）完成第一部商用影印機，品牌名因此變成通用名詞，就像我們說「立可白」一樣。", "page": 6, "unit": "計算機大事記", "id": "1-tf-2"}, {"ch": 1, "type": "tf", "n": 3, "q": "拍賣網站 iBay 以「唐先生打破蟠龍花瓶」廣告，一炮而紅。", "ans": false, "exp": "網站名稱被竄改了。這支經典廣告來自拍賣網站 <b>eBay</b>，「iBay」不存在。（記法：e 不是 i。）", "page": 6, "unit": "計算機大事記", "id": "1-tf-3"}, {"ch": 1, "type": "tf", "n": 4, "q": "SONY 的 Xbox 主機是目前主流的電玩主機。", "ans": false, "exp": "Xbox 是<b>微軟（Microsoft）</b>的主機；SONY 的主機是 PlayStation。公司被調換了。", "page": 6, "unit": "計算機大事記", "id": "1-tf-4"}, {"ch": 1, "type": "tf", "n": 5, "q": "Niklaus Wirth 開發了 Pascal 程式語言。", "ans": true, "exp": "1971 年 Niklaus Wirth 開發 Pascal 語言，名字是向 1642 年發明加法器的 Blaise Pascal 致敬。", "page": 6, "unit": "計算機大事記", "id": "1-tf-5"}, {"ch": 1, "type": "tf", "n": 6, "q": "Dennis Ritchie 開發了 C 程式語言。", "ans": true, "exp": "1972 年 Dennis Ritchie 開發 C 語言，由 <b>B 語言</b>演化而來。他也和 Ken Thompson 在 1970 年設計了 UNIX，兩人在 1983 年獲杜林獎。", "page": 6, "unit": "計算機大事記", "id": "1-tf-6"}, {"ch": 1, "type": "tf", "n": 7, "q": "西元 1977 年，Steve Jobs 和 Steve Wozniak 成立了蘋果電腦公司（Apple Computer）。", "ans": true, "exp": "1977 年兩人成立蘋果電腦公司並推出 Apple II（前一年 1976 年先設計了 Apple I）。", "page": 6, "unit": "計算機大事記", "id": "1-tf-7"}, {"ch": 1, "type": "tf", "n": 8, "q": "西元 1977 年，Bill Gates 和 Paul Allen 創設了微軟（Microsoft）。", "ans": true, "exp": "依課本年份為 1977 年，老師解答為「○」。（坊間資料常寫 1975 年，但考試請依課本作答。）", "page": 6, "unit": "計算機大事記", "id": "1-tf-8"}, {"ch": 1, "type": "tf", "n": 9, "q": "西元 1997 年，廣受歡迎的搜尋引擎 Google 推出，開創者是史丹佛博士班的休學學生 Larry Page 和 Sergey Brin。", "ans": false, "exp": "人物正確，但年份錯了：Google 是 <b>1998 年</b>推出。1997 年的大事是 IBM 深藍擊敗西洋棋王 Kasparov。", "page": 7, "unit": "計算機大事記", "id": "1-tf-9"}, {"ch": 1, "type": "tf", "n": 10, "q": "西元 1968 年，Robert Noyce、Andrew Grove 和 Gordon Moore 成立了 Intel。", "ans": true, "exp": "1968 年三人成立 Intel。其中 Gordon Moore 就是提出「摩爾定律」的那位。", "page": 7, "unit": "計算機大事記", "id": "1-tf-10"}, {"ch": 1, "type": "mc", "n": 1, "q": "請問真空管電腦的缺點<b>不包括</b>？", "opts": ["壽命短", "易故障", "不易散熱", "體積小"], "ans": 3, "exp": "真空管像小燈泡：體積<b>大</b>、耗電、發熱、壽命短、容易故障。「體積小」不但不是它的缺點，根本不是它的特徵。注意題目問的是「不包括」。", "why": ["燈絲會燒壞，壽命短是真空管的缺點。", "ENIAC 用了近一萬八千支真空管，常常有管子壞掉，易故障是缺點。", "真空管發熱嚴重、不易散熱，是缺點。", "正解。真空管體積大，「體積小」不是它的缺點。"], "page": 10, "unit": "電腦的四個世代", "id": "1-mc-1"}, {"ch": 1, "type": "mc", "n": 2, "q": "將電腦區分為輸入、輸出、記憶、處理等單元，這種架構由誰提出？", "opts": ["愛因斯坦", "范紐曼", "牛頓", "圖靈"], "ans": 1, "exp": "1945 年馮紐曼（范紐曼，只是譯名不同）提出儲存程式概念與四大子系統：記憶體、算術邏輯單元、控制單元、輸入／輸出。", "why": ["愛因斯坦是提出相對論的物理學家，與電腦架構無關。", "正解。范紐曼＝馮紐曼（von Neumann）。", "牛頓是古典力學的物理學家。", "圖靈（杜林）提出的是杜林機，屬於計算理論，不是這個硬體架構。"], "page": 13, "unit": "馮紐曼架構", "id": "1-mc-2"}, {"ch": 1, "type": "mc", "n": 3, "q": "將電腦分成第一代、第二代、第三代與第四代等，劃分的依據為？", "opts": ["使用之電子元件", "用途", "功能與速度", "發展的年代"], "ans": 0, "exp": "分代依據是「用什麼當開關」：真空管 → 電晶體 → 積體電路 → 超大型積體電路。年代和速度只是換了元件之後的結果。", "why": ["正解。", "用途是區分超級電腦、微電腦、嵌入式電腦等「種類」的依據，不是分代。", "速度變快是換元件帶來的結果，不是劃分依據。", "每一代的年份是依元件劃出來的，年代是結果不是原因。"], "page": 10, "unit": "電腦的四個世代", "id": "1-mc-3"}, {"ch": 1, "type": "mc", "n": 4, "q": "請問第一代電腦使用的主要電子元件為？", "opts": ["積體電路", "電晶體", "機械", "真空管"], "ans": 3, "exp": "第一代（1946–1958）真空管，代表機種 ENIAC、UNIVAC I。口訣：<b>真、晶、積、超</b>。", "why": ["積體電路是第三代。", "電晶體是第二代。", "機械是電子化以前（例如 Pascaline）。", "正解。"], "page": 10, "unit": "電腦的四個世代", "id": "1-mc-4"}, {"ch": 1, "type": "mc", "n": 5, "q": "請問個人電腦 PC 是屬於哪一類型的電腦？", "opts": ["超級電腦", "大型電腦", "微電腦", "嵌入式電腦"], "ans": 2, "exp": "個人電腦以「微處理器」為核心，屬於<b>微電腦</b>。1975 年 Altair 8800 是第一部 PC。", "why": ["超級電腦運算能力最強，用於氣象、科學模擬（如 Cray-1）。", "大型電腦用於銀行、政府等大量交易處理。", "正解。", "嵌入式電腦藏在家電、汽車裡，只做特定工作。"], "page": 11, "unit": "電腦的四個世代", "id": "1-mc-5"}, {"ch": 1, "type": "mc", "n": 6, "q": "請問第二代電腦使用的主要電子元件為？", "opts": ["積體電路", "電晶體", "機械", "真空管"], "ans": 1, "exp": "第二代（1959–1963）電晶體，代表機種 Honeywell 400。電晶體比真空管小、省電、散熱快、可靠又便宜。", "why": ["積體電路是第三代。", "正解。", "機械是電子化以前。", "真空管是第一代。"], "page": 10, "unit": "電腦的四個世代", "id": "1-mc-6"}, {"ch": 1, "type": "mc", "n": 7, "q": "奈米（ns）為 10 的幾次方米？", "opts": ["−3", "−6", "−9", "−12"], "ans": 2, "exp": "「奈」（nano）永遠是 10<sup>−9</sup>。每往下一級乘 10<sup>−3</sup>：毫 −3、微 −6、奈 −9、皮 −12。（題目的 ns 其實是奈秒，但「奈」都是 −9。）", "why": ["10<sup>−3</sup> 是「毫」（milli）。", "10<sup>−6</sup> 是「微」（micro）。", "正解。", "10<sup>−12</sup> 是「皮」（pico）。"], "page": 10, "unit": "電腦的四個世代", "id": "1-mc-7"}, {"ch": 1, "type": "mc", "n": 8, "q": "請問第三代電腦使用的主要電子元件為？", "opts": ["積體電路", "電晶體", "機械", "真空管"], "ans": 0, "exp": "第三代（1964–1970）積體電路（IC），代表機種 IBM 360。", "why": ["正解。", "電晶體是第二代。", "機械是電子化以前。", "真空管是第一代。"], "page": 10, "unit": "電腦的四個世代", "id": "1-mc-8"}, {"ch": 1, "type": "mc", "n": 9, "q": "若以 A、B、C、D 分別代表電腦的電晶體時期、超大型積體電路時期、真空管時期以及積體電路時期，依據電腦的演進過程，下列順序何者正確？", "opts": ["ACDB", "CDAB", "CADB", "CABD"], "ans": 2, "exp": "先把代號換回名稱：A＝電晶體、B＝超大型 IC、C＝真空管、D＝IC。依「真 → 晶 → 積 → 超」排列：C → A → D → B。", "why": ["把電晶體（A）排在真空管（C）前面，錯。", "把積體電路（D）排在電晶體（A）前面，錯。", "正解：真空管 → 電晶體 → 積體電路 → 超大型積體電路。", "把超大型 IC（B）排在 IC（D）前面，錯。"], "page": 10, "unit": "電腦的四個世代", "id": "1-mc-9"}, {"ch": 1, "type": "mc", "n": 10, "q": "作業系統的操作方式有哪兩種？", "opts": ["文字介面和操作介面", "圖形介面和操作介面", "操作介面和執行介面", "文字介面和圖形介面"], "ans": 3, "exp": "文字介面（CLI，打指令，例如 DOS、Linux 終端機）與圖形介面（GUI，用滑鼠點圖示，例如 Windows）。", "why": ["「操作介面」不是一種分類名稱。", "「操作介面」不是一種分類名稱。", "兩個都不是正式分類。", "正解。"], "page": 11, "unit": "電腦的四個世代", "id": "1-mc-10"}, {"ch": 1, "type": "mc", "n": 11, "q": "下列何者<b>不屬於</b>電腦的輸入單元？", "opts": ["鍵盤", "滑鼠", "掃描器", "印表機"], "ans": 3, "exp": "印表機把處理後的結果「送出」電腦，屬於<b>輸出</b>單元。", "why": ["鍵盤把文字送進電腦，是輸入。", "滑鼠把位置與點擊送進電腦，是輸入。", "掃描器把文件轉成數位影像送進電腦，是輸入。", "正解，印表機是輸出設備。"], "page": 11, "unit": "電腦的四個世代", "id": "1-mc-11"}, {"ch": 1, "type": "mc", "n": 12, "q": "應用軟體的形式有很多種，下列何者是提供大眾使用、修改和散佈的軟體？", "opts": ["共享軟體", "開放原始碼軟體", "客製化軟體", "套裝軟體"], "ans": 1, "exp": "關鍵字是「修改和散佈」：開放原始碼軟體公開程式碼，任何人都能使用、修改、散佈，例如 Linux。", "why": ["共享軟體是先免費試用、滿意再付費，不開放修改原始碼。", "正解。", "客製化軟體是替特定客戶量身打造的。", "套裝軟體是公司做好、包裝販售的（例如 Office）。"], "page": 11, "unit": "電腦的四個世代", "id": "1-mc-12"}, {"ch": 1, "type": "mc", "n": 13, "q": "費林分類法根據指令和資料的相對關係，區分為四種計算架構。請將「小吃店有一個收銀員幫顧客結帳」的工作模式對應至最適切的計算架構：", "opts": ["SISD", "SIMD", "MISD", "MIMD"], "ans": 0, "exp": "判斷步驟：先問「有幾個處理者」。只有一位收銀員 → 一次處理一位顧客（單一資料）、做一種動作（單一指令）→ SISD。", "why": ["正解：一位收銀員，一次處理一位顧客。", "SIMD 是多個處理者同步做同一件事，例如工廠多條生產線的機器手臂同步組裝。", "MISD 是多個處理者對同一份資料做不同的事，例如一位學生同時被多位老師檢查。", "MIMD 是多個處理者各做各的，例如電影院多位售票員各自售票。"], "page": 14, "unit": "馮紐曼架構", "id": "1-mc-13"}, {"ch": 1, "type": "fill", "n": 1, "q": "電腦一詞乃是 {{}} 的俗稱。", "blanks": [{"show": "計算機", "acc": ["計算機", "computer", "電子計算機"]}], "unordered": false, "exp": "「電腦」的正式名稱是<b>計算機</b>（computer），原意就是會計算的機器。", "page": 3, "unit": "計算機大事記", "id": "1-fi-1"}, {"ch": 1, "type": "fill", "n": 2, "q": "西元 1642 年法國人 Blaise Pascal 所發明的加法器（第一個機械式的計算器），稱為 {{}}。", "blanks": [{"show": "Pascaline", "acc": ["pascaline", "巴斯卡加法器", "帕斯卡加法器"]}], "unordered": false, "exp": "Pascaline 用齒輪「逢十進一」，是第一個機械式計算器。", "page": 3, "unit": "計算機大事記", "id": "1-fi-2"}, {"ch": 1, "type": "fill", "n": 3, "q": "第一部可用電子訊號將資訊編碼的特殊用途機器，稱為 {{}}。", "blanks": [{"show": "ABC", "acc": ["abc", "atanasoffberrycomputer"]}], "unordered": false, "exp": "1939 年 Atanasoff 與 Berry 發明的 ABC（Atanasoff–Berry Computer），用來解線性方程式。關鍵字：「電子編碼」＋「特殊用途」。", "page": 3, "unit": "計算機大事記", "id": "1-fi-3"}, {"ch": 1, "type": "fill", "n": 4, "q": "第一部電動機械計算機，稱為 {{}}。", "blanks": [{"show": "Mark I（馬克一號）", "acc": ["marki", "mark1", "馬克一號", "馬克1號", "harvardmarki", "哈佛馬克一號"]}], "unordered": false, "exp": "1944 年哈佛大學在 IBM 贊助下完成 Mark I。關鍵字是「電動<b>機械</b>」：電動馬達帶動機械零件，還不是純電子。", "page": 3, "unit": "計算機大事記", "id": "1-fi-4"}, {"ch": 1, "type": "fill", "n": 5, "q": "第一部以真空管為基礎元件的電腦為 {{}}。", "blanks": [{"show": "ENIAC", "acc": ["eniac"]}], "unordered": false, "exp": "1946 年賓州大學 Mauchly 與 Eckert 製造 ENIAC，開啟第一代電腦（真空管時期）。", "page": 3, "unit": "計算機大事記", "id": "1-fi-5"}, {"ch": 1, "type": "fill", "n": 6, "q": "第一部使用儲存器及程式設計概念的機器為 {{}}。", "blanks": [{"show": "Jacquard loom（提花織布機）", "acc": ["jacquardloom", "jacquard", "提花織布機", "提花機", "雅卡爾織布機", "賈卡織布機"]}], "unordered": false, "exp": "1801 年 Jacquard 用打孔卡片控制織布花樣，換一疊卡片就換一種花樣——「把指令事先存起來」的雛形。容易誤填 Mark I。", "page": 3, "unit": "計算機大事記", "id": "1-fi-6"}, {"ch": 1, "type": "fill", "n": 7, "q": "John V. Atanasoff and Clifford Berry 於 1939 年所發明的第一部將資訊電子化的特定功能電腦，稱為 {{}}。", "blanks": [{"show": "ABC", "acc": ["abc", "atanasoffberrycomputer"]}], "unordered": false, "exp": "和填充 3 是同一台機器，只是換了說法。ABC＝Atanasoff–Berry Computer。", "page": 3, "unit": "計算機大事記", "id": "1-fi-7"}, {"ch": 1, "type": "fill", "n": 8, "q": "第一部全功能且電子化的電腦 ENIAC 發明於西元 {{}} 年。", "blanks": [{"show": "1946", "acc": ["1946"]}], "unordered": false, "exp": "1946 年 ENIAC 開啟第一代電腦。對照：1945 年馮紐曼提出儲存程式。", "page": 10, "unit": "電腦的四個世代", "id": "1-fi-8"}, {"ch": 1, "type": "fill", "n": 9, "q": "世上最早及最大的計算機教育及研究學會為 {{}}。", "blanks": [{"show": "ACM", "acc": ["acm", "associationforcomputingmachinery"]}], "unordered": false, "exp": "ACM（Association for Computing Machinery）1947 年開始運作。別和 IEEE（國際電機電子工程師學會）搞混：ACM 專注計算機。", "page": 4, "unit": "計算機大事記", "id": "1-fi-9"}, {"ch": 1, "type": "fill", "n": 10, "q": "有資訊領域諾貝爾獎之稱為 {{}}。", "blanks": [{"show": "杜林獎（Turing Award）", "acc": ["杜林獎", "圖靈獎", "turingaward", "turing獎", "涂林獎", "amturingaward"]}], "unordered": false, "exp": "ACM 為紀念亞蘭・杜林在 1966 年設立杜林獎。唯一華人得主是 2000 年的姚期智院士。", "page": 4, "unit": "計算機大事記", "id": "1-fi-10"}, {"ch": 1, "type": "fill", "n": 11, "q": "第二代電腦所用的電子元件為 {{}}。", "blanks": [{"show": "電晶體", "acc": ["電晶體", "transistor", "晶體管"]}], "unordered": false, "exp": "真、晶、積、超：第二代是電晶體（1959–1963），代表機種 Honeywell 400。", "page": 10, "unit": "電腦的四個世代", "id": "1-fi-11"}, {"ch": 1, "type": "fill", "n": 12, "q": "西元 1970 年，Dennis Ritchie 和 Kenneth Thompson 設計了 {{}} 作業系統。", "blanks": [{"show": "UNIX", "acc": ["unix"]}], "unordered": false, "exp": "1970 年 UNIX；1972 年 Ritchie 又開發了 C 語言。1991 年的 Linux 就是基於 UNIX 的開放原始碼。", "page": 7, "unit": "計算機大事記", "id": "1-fi-12"}, {"ch": 1, "type": "fill", "n": 13, "q": "C 語言是由 {{}} 語言演化而來。", "blanks": [{"show": "B", "acc": ["b", "b語言"]}], "unordered": false, "exp": "B → C，名字也是順著字母來的。", "page": 7, "unit": "計算機大事記", "id": "1-fi-13"}, {"ch": 1, "type": "fill", "n": 14, "q": "西元 1978 年，Ron Rivest、Adi Shamir 及 Leonard Adelman 發明了著名的 {{}} 公開金鑰加密法。", "blanks": [{"show": "RSA", "acc": ["rsa"]}], "unordered": false, "exp": "RSA 就是三位發明者姓氏的字首：Rivest、Shamir、Adleman。", "page": 7, "unit": "計算機大事記", "id": "1-fi-14"}, {"ch": 1, "type": "fill", "n": 15, "q": "全球資訊網於西元 {{}} 年推出。", "blanks": [{"show": "1990", "acc": ["1990"]}], "unordered": false, "exp": "1989 年 Tim Berners-Lee <b>提出</b> WWW 構想，1990 年<b>正式推出</b>。兩個年份都要記，題目問「推出」就寫 1990。", "page": 7, "unit": "計算機大事記", "id": "1-fi-15"}, {"ch": 1, "type": "fill", "n": 16, "q": "西元 1991 年，芬蘭赫爾辛基大學的學生 Linus Torvalds，基於 UNIX 的開放原始碼，創作了個人電腦作業系統 {{}}。", "blanks": [{"show": "Linux", "acc": ["linux"]}], "unordered": false, "exp": "Linux＝Linus＋UNIX。它是開放原始碼軟體的代表。", "page": 7, "unit": "計算機大事記", "id": "1-fi-16"}, {"ch": 1, "type": "fill", "n": 17, "q": "第一個成功的商業化瀏覽器為 {{}}。", "blanks": [{"show": "Netscape（網景）", "acc": ["netscape", "網景", "netscapenavigator", "網景瀏覽器"]}], "unordered": false, "exp": "1994 年 Netscape 推出，同年楊致遠與 David Filo 推出 Yahoo!。", "page": 7, "unit": "計算機大事記", "id": "1-fi-17"}, {"ch": 1, "type": "fill", "n": 18, "q": "{{}} 已經成為最主流的全球資訊網瀏覽器。", "blanks": [{"show": "IE（Internet Explorer）", "acc": ["ie", "internetexplorer", "ie瀏覽器"]}], "unordered": false, "exp": "這是課本撰寫當時的答案（1995 年 IE 隨 Windows 95 推出後成為主流），考試請寫 IE。現實中今天市佔最高的是 Chrome。", "page": 7, "unit": "計算機大事記", "id": "1-fi-18"}, {"ch": 1, "type": "fill", "n": 19, "q": "西元 1997 年，IBM 的 {{}} 電腦擊敗了稱霸西洋棋壇十四年的棋王 Garry Kasparov。", "blanks": [{"show": "深藍（Deep Blue）", "acc": ["深藍", "deepblue", "深藍電腦"]}], "unordered": false, "exp": "1997 年深藍擊敗 Kasparov；2016 年 AlphaGo 擊敗李世乭。", "page": 7, "unit": "計算機大事記", "id": "1-fi-19"}, {"ch": 1, "type": "fill", "n": 20, "q": "結合 Windows NT 系列及 Windows 95 系列的作業系統為 Windows {{}}。", "blanks": [{"show": "XP", "acc": ["xp"]}], "unordered": false, "exp": "2001 年 Windows XP 結合 NT 與 95 兩條產品線。", "page": 7, "unit": "計算機大事記", "id": "1-fi-20"}, {"ch": 1, "type": "fill", "n": 21, "q": "Itanium 是 Intel 第一個 {{}} 位元的微處理器。", "blanks": [{"show": "64", "acc": ["64", "64位元"]}], "unordered": false, "exp": "2001 年 Itanium 是 Intel 第一個 64 位元處理器。對照：8086（1978）16 位元、386（1986）32 位元。", "page": 7, "unit": "計算機大事記", "id": "1-fi-21"}, {"ch": 1, "type": "fill", "n": 22, "q": "Windows XP 的 XP 乃 {{}} 的縮寫。", "blanks": [{"show": "eXPerience", "acc": ["experience"]}], "unordered": false, "exp": "eXPerience 中的 X 和 P。", "page": 7, "unit": "計算機大事記", "id": "1-fi-22"}, {"ch": 1, "type": "fill", "n": 23, "q": "「馮紐曼模式」（von Neumann Model）的架構最主要的精神在於 {{}} 的概念。", "blanks": [{"show": "儲存程式（stored program）", "acc": ["儲存程式", "storedprogram", "程式儲存", "內儲程式", "存儲程式", "儲存程式概念"]}], "unordered": false, "exp": "程式和資料一樣以 0 與 1 存在記憶體裡。要做不同的事只要載入不同程式，不必改硬體。", "page": 13, "unit": "馮紐曼架構", "id": "1-fi-23"}, {"ch": 1, "type": "fill", "n": 24, "q": "von Neumann model 有哪四個主要的子系統：{{}}、{{}}、{{}} 及 {{}}。", "blanks": [{"show": "記憶體", "acc": ["記憶體", "memory", "記憶單元", "主記憶體"]}, {"show": "算術邏輯單元（ALU）", "acc": ["算術邏輯單元", "算數邏輯單元", "alu", "arithmeticlogicunit"]}, {"show": "控制單元（CU）", "acc": ["控制單元", "cu", "controlunit"]}, {"show": "輸入／輸出", "acc": ["輸入輸出", "輸入／輸出", "io", "inputoutput", "輸出入", "輸入", "輸出"]}], "unordered": true, "exp": "四大子系統：記憶體、算術邏輯單元、控制單元、輸入／輸出。其中 ALU＋CU＝CPU。順序不拘。", "page": 13, "unit": "馮紐曼架構", "id": "1-fi-24"}, {"ch": 1, "type": "qa", "n": 1, "q": "請簡述電腦發展經歷的四個主要時期所使用的技術與代表的電腦。", "a": "<ul><li><b>第一代（1946–1958）真空管</b>：ENIAC、UNIVAC I</li><li><b>第二代（1959–1963）電晶體</b>：Honeywell 400</li><li><b>第三代（1964–1970）積體電路 IC</b>：IBM 360</li><li><b>第四代（1971–今）超大型積體電路 VLSI</b>：第一部微處理器 Intel 4004，以及之後的個人電腦</li></ul>", "exp": "每一代寫「年代＋元件＋代表機種」，最後補一句趨勢：體積越來越小、速度越來越快、越便宜。口訣「真、晶、積、超」。", "page": 10, "unit": "電腦的四個世代", "id": "1-qa-1"}, {"ch": 1, "type": "qa", "n": 2, "q": "傳統電腦的執行速度受限於「范紐曼瓶頸」，請解釋何謂范紐曼瓶頸？", "a": "在馮紐曼架構下，程式與資料都存在記憶體，中央處理器必須<b>反覆從記憶體讀取</b>指令與資料。兩者之間的<b>傳輸速度</b>會限制電腦執行的效能：不論 CPU 多快，整體速度都受限於這條通道（匯流排），這個傳輸限制稱為范紐曼瓶頸。", "exp": "比喻：工廠（CPU）再快，原料和工作單都得排隊過同一座單線道橋（匯流排）。解法：快取記憶體、哈佛架構（指令與資料分開存）。", "page": 13, "unit": "馮紐曼架構", "id": "1-qa-2"}, {"ch": 1, "type": "qa", "n": 3, "q": "類比數值轉成數位數值會產生誤差，例如 1.2 用 1 表示會產生 0.2 的誤差。給定兩個數字，格式均為 X.Y，X 與 Y 是介於 0 至 9 的整數。如果這兩個數字均經過<b>無條件捨去</b>小數點的轉換，請問執行加法與減法產生的最大誤差分別是多少？", "a": "<b>加法 1.8、減法 0.9</b>。<br>單一數字捨去小數，誤差範圍 0～0.9。<ul><li>加法：兩個誤差疊加，最大 0.9＋0.9＝1.8。例：4.9＋3.9＝8.8，捨去後 4＋3＝7。</li><li>減法：同方向的誤差會抵消，最大 0.9－0＝0.9。例：4.9－3.0＝1.9，捨去後 4－3＝1。</li></ul>", "exp": "關鍵是先算「單一個數」的誤差範圍，再想加法是疊加、減法是相減（互相抵消）。", "page": 19, "unit": "位元與數位化", "id": "1-qa-3"}, {"ch": 1, "type": "qa", "n": 4, "q": "同問題 3，如果數字轉換用<b>四捨五入</b>的作法，請問執行加法與減法產生的最大誤差分別是多少？", "a": "<b>加法 1.0、減法 0.9</b>。<br>四捨五入時，Y≤4 捨去（誤差 0～+0.4），Y≥5 進位（誤差 −0.5～−0.1），單一數的誤差範圍是 −0.5～+0.4。<ul><li>加法：兩個都取 −0.5，合計 1.0。例：4.5＋3.5＝8.0，四捨五入後 5＋4＝9。</li><li>減法：0.4－(−0.5)＝0.9。例：4.4－3.5＝0.9，四捨五入後 4－4＝0。</li></ul>", "exp": "四捨五入的誤差「不對稱」：往上最多進 0.5，往下最多捨 0.4。", "page": 19, "unit": "位元與數位化", "id": "1-qa-4"}, {"ch": 1, "type": "qa", "n": 5, "q": "請簡述電腦軟體的兩大類型，並各自指出一種代表的軟體。", "a": "電腦軟體分為<b>系統軟體</b>與<b>應用軟體</b>。<ul><li>系統軟體：管理硬體、提供執行環境，例如 Windows 作業系統。</li><li>應用軟體：替使用者完成特定工作，例如微軟 Word 排版軟體。</li></ul>", "exp": "系統軟體是電腦的「管家」，應用軟體是替你「辦事」的工具。驅動程式、編譯器也算系統軟體；瀏覽器、遊戲屬應用軟體。", "page": 11, "unit": "電腦的四個世代", "id": "1-qa-5"}, {"ch": 1, "type": "qa", "n": 6, "q": "請敘述費林分類方式，並用現實生活的方式舉例。", "a": "費林依電腦同一時間能處理的<b>指令數</b>與<b>資料數</b>分成四種：<ul><li><b>SISD</b> 單一指令單一資料：一位收銀員依序結帳</li><li><b>SIMD</b> 單一指令多重資料：工廠多條生產線的機器手臂同步組裝</li><li><b>MISD</b> 多重指令單一資料：一位學生同時被多位老師檢查不同項目</li><li><b>MIMD</b> 多重指令多重資料：電影院多位售票員各自售票</li></ul>", "exp": "畫成 2×2 表格最好記：橫軸是單一／多重指令，縱軸是單一／多重資料。", "page": 14, "unit": "馮紐曼架構", "id": "1-qa-6"}, {"ch": 1, "type": "qa", "n": 7, "q": "目前大部分網頁搜尋的方式是透過輸入關鍵字，另一種更先進的作法是基於「語意搜尋」。請整理何謂語意搜尋，比關鍵字搜尋優越的地方在哪裡？", "a": "<b>語意搜尋</b>讓搜尋引擎理解查詢的「意思」與「意圖」，而不只比對字面，會考慮同義詞、上下文、實體之間的關係與使用者的目的。<br>優點：<ul><li>可以用自然語言提問（例：「台北下週會下雨嗎」）</li><li>不同說法、同義詞也能找到同一答案</li><li>能消除歧義（「蘋果」是水果還是公司）</li><li>可直接給出整理好的答案，而不只是一串連結</li></ul>", "exp": "開放題，抓住「理解意思 vs. 比對字面」這個對比，再舉 2–3 個優點即可。課本提到 2025 年網路查詢正從關鍵字轉向聊天式問答。", "page": 8, "unit": "計算機大事記", "id": "1-qa-7"}, {"ch": 1, "type": "qa", "n": 8, "q": "網路資訊無奇不有，是否好奇大家都在找什麼呢？請舉出五種可能的情況。", "a": "任舉五種：突發新聞與災害（地震、颱風假）、影視娛樂與明星八卦、天氣與交通、購物比價與優惠、考試與報名資訊、健康與疫情、熱門遊戲攻略、運動賽事比分。", "exp": "開放題。可提 Google Trends 能觀察熱門搜尋關鍵字。", "page": 8, "unit": "計算機大事記", "id": "1-qa-8"}, {"ch": 1, "type": "qa", "n": 9, "q": "如果有一台很聰明的電腦，能對你提出的問題正確回答「對」與「錯」，假設預先知道答案不超過 100，請問如何利用這台電腦得知 10+20 的答案？你需要提出幾個問題呢？", "a": "用<b>二分法</b>：每次問「答案是否大於目前範圍的中間值？」，每問一次範圍減半。答案在 0–100（101 種可能），因為 2<sup>6</sup>＝64 ＜ 101 ≤ 2<sup>7</sup>＝128，<b>最多問 7 次</b>。<br>例：&gt;50？錯；&gt;25？對；&gt;38？錯；&gt;32？錯；&gt;29？對；&gt;31？錯；&gt;30？錯 → 答案是 30。", "exp": "每個「對／錯」的答案就是 1 個位元，問 n 題能分辨 2<sup>n</sup> 種可能。7 次是最壞情況。", "page": 17, "unit": "位元與數位化", "id": "1-qa-9"}, {"ch": 1, "type": "qa", "n": 10, "q": "鍵盤是人與電腦間輸入資料最常使用的設備，請想看看是否還有其他的人機介面可輸入資料？請列舉三種。", "a": "任舉三種：語音輸入（麥克風＋語音辨識）、觸控螢幕、手寫板／觸控筆、掃描器或相機（OCR 文字辨識）、眼動或頭部追蹤、手勢／體感偵測、腦機介面。", "exp": "課本 2013 年提到手機開始出現用眼睛或頭部操控的介面，可以拿來舉例。", "page": 11, "unit": "電腦的四個世代", "id": "1-qa-10"}, {"ch": 2, "type": "fill", "n": 1, "q": "電腦儲存或傳遞資料的最小單位為 {{}}。", "blanks": [{"show": "位元（bit）", "acc": ["位元", "bit", "比特"]}], "unordered": false, "exp": "位元只有 0 和 1 兩種值，是數位資訊的基本粒子。別和位元組（byte＝8 bits）搞混。", "page": 16, "unit": "位元與數位化", "id": "2-fi-1"}, {"ch": 2, "type": "fill", "n": 2, "q": "位元的英文名稱 bit，是 {{}} 的簡稱。", "blanks": [{"show": "binary digit", "acc": ["binarydigit", "二進位數字"]}], "unordered": false, "exp": "<b>bi</b>nary digi<b>t</b> → bit。", "page": 16, "unit": "位元與數位化", "id": "2-fi-2"}, {"ch": 2, "type": "fill", "n": 3, "q": "一個位元組（byte）有幾個位元？{{}}", "blanks": [{"show": "8", "acc": ["8", "8個", "8位元", "八"]}], "unordered": false, "exp": "早期電腦以 8 個位元為存取單位，所以 8 bits＝1 byte，有 2<sup>8</sup>＝256 種組合。", "page": 16, "unit": "位元與數位化", "id": "2-fi-3"}, {"ch": 2, "type": "fill", "n": 4, "q": "出現「鋸齒狀」的數位化照片常是因為 {{}} 不夠所致。", "blanks": [{"show": "解析度", "acc": ["解析度", "resolution", "像素", "解析"]}], "unordered": false, "exp": "照片切成許多小方格（像素），方格太粗（解析度不夠），斜線邊緣就會出現一階一階的鋸齒。", "page": 18, "unit": "位元與數位化", "id": "2-fi-4"}, {"ch": 2, "type": "fill", "n": 5, "q": "UTF-16 編碼方式以幾個位元為基本單元？{{}}", "blanks": [{"show": "16 位元", "acc": ["16", "16位元", "16個", "16bit", "16bits"]}], "unordered": false, "exp": "UTF-16 以 16 位元為基本單元，每字用 2 或 4 個位元組；Java 和 Windows 使用。對照：UTF-8 用 1–4 個位元組，UTF-32 固定 4 個。", "page": 30, "unit": "文字編碼", "id": "2-fi-5"}, {"ch": 2, "type": "fill", "n": 6, "q": "ASCII 用幾個位元表示一個字符？{{}}", "blanks": [{"show": "7", "acc": ["7", "7個", "7位元", "七"]}], "unordered": false, "exp": "標準 ASCII 用 7 個位元（2<sup>7</sup>＝128 種）；擴充型 ASCII 用 8 個位元（256 種）。存在 8 位元組時多出的一位可當錯誤檢驗位元。", "page": 30, "unit": "文字編碼", "id": "2-fi-6"}, {"ch": 2, "type": "fill", "n": 7, "q": "A 的 ASCII 碼為 {{}}；a 的 ASCII 碼為 {{}}。", "blanks": [{"show": "65", "acc": ["65"]}, {"show": "97", "acc": ["97"]}], "unordered": false, "exp": "三個錨點：數字 0＝48、大寫 A＝65、小寫 a＝97。小寫＝大寫＋32。", "page": 30, "unit": "文字編碼", "id": "2-fi-7"}, {"ch": 2, "type": "fill", "n": 8, "q": "十進位 188.875 的二進位表示法為 {{}}；八進位表示法為 {{}}；十六進位表示法為 {{}}。", "blanks": [{"show": "10111100.111₂", "acc": ["10111100.111"]}, {"show": "274.7₈", "acc": ["274.7"]}, {"show": "BC.E₁₆", "acc": ["bc.e", "0xbc.e"]}], "unordered": false, "exp": "整數 188＝128＋32＋16＋8＋4 → 10111100；小數 0.875 連乘 2：1.75(1)、1.5(1)、1.0(1) → .111。<br>八進位：從小數點往兩邊每 3 位一組：010 111 100 . 111 → 2 7 4 . 7。<br>十六進位：每 4 位一組：1011 1100 . 1110 → B C . E（小數部分不足 4 位在<b>右邊</b>補 0）。", "page": 22, "unit": "進位制", "id": "2-fi-8"}, {"ch": 2, "type": "table", "n": 9, "q": "假設一個整數儲存為 8 個位元（8-bit memory location），請填入下列空格（輸入 8 個 0/1，放不下的寫「溢位」）：", "cols": ["帶正負符號大小", "一補數", "二補數"], "rows": [{"label": "+120", "cells": [["01111000"], ["01111000"], ["01111000"]]}, {"label": "−120", "cells": [["11111000"], ["10000111"], ["10001000"]]}, {"label": "125", "cells": [["01111101"], ["01111101"], ["01111101"]]}, {"label": "−16", "cells": [["10010000"], ["11101111"], ["11110000"]]}, {"label": "128", "cells": [["溢位"], ["溢位"], ["溢位"]]}, {"label": "−128", "cells": [["溢位"], ["溢位"], ["10000000"]]}, {"label": "0", "cells": [["00000000", "10000000"], ["00000000", "11111111"], ["00000000"]]}], "exp": "正數三種表示法都一樣（最左位 0）。負數：帶正負符號大小把最左位改成 1；一補數每位反轉；二補數反轉後加 1（捷徑：從右往左找到第一個 1，它和右邊的 0 保留，其餘反轉）。<br>128 需要 8 位大小＋1 位符號，三種都放不下；−128 只有二補數放得下（範圍 −128～127）。0 在前兩種表示法各有兩個（＋0 與 −0），二補數只有一個。", "page": 24, "unit": "整數表示法", "id": "2-fi-9"}, {"ch": 2, "type": "table", "n": 10, "q": "請把下列十進位數以 IEEE 754 單倍精準數（32 位元）表示（輸入 32 個 0/1，空格可有可無）：", "cols": ["IEEE 754 單倍精準數（符號｜指數｜尾數）"], "rows": [{"label": "0.5", "cells": [["0 01111110 00000000000000000000000"]]}, {"label": "1.5", "cells": [["0 01111111 10000000000000000000000"]]}, {"label": "125.625", "cells": [["0 10000101 11110110100000000000000"]]}, {"label": "0.00875", "cells": [["0 01111000 00011110101110000101000", "0 01111000 00011110101110000101001"]]}, {"label": "12850.125", "cells": [["0 10001100 10010001100100010000000"]]}, {"label": "3852.05", "cells": [["0 10001010 11100001100000011001100", "0 10001010 11100001100000011001101"]]}], "exp": "三步驟：① 轉二進位並標準化成 1.xxx × 2<sup>e</sup>；② 指數存 e＋127（過剩 127）；③ 尾數存小數點後的位元，補 0 到 23 位。<ul><li>0.5＝1.0×2<sup>−1</sup> → 指數 126</li><li>1.5＝1.1×2<sup>0</sup> → 指數 127</li><li>125.625＝1111101.101＝1.111101101×2<sup>6</sup> → 指數 133</li><li>0.00875 介於 2<sup>−7</sup> 與 2<sup>−6</sup> 之間 → 指數 120，尾數無窮循環</li><li>12850.125＝11001000110010.001＝1.1001000110010001×2<sup>13</sup> → 指數 140</li><li>3852.05＝111100001100.0000110011…₂＝1.11100001100000011…×2<sup>11</sup> → 指數 138</li></ul>0.00875 與 3852.05 的尾數是無窮位數：課本直接截斷，實際硬體會四捨五入最後一位，兩種寫法這裡都算對。", "page": 28, "unit": "浮點數", "id": "2-fi-10"}, {"ch": 2, "type": "fill", "n": 11, "q": "GB、KB、TB、MB 四個位元組單位由小到大為 {{}} ＜ {{}} ＜ {{}} ＜ {{}}。", "blanks": [{"show": "KB", "acc": ["kb"]}, {"show": "MB", "acc": ["mb"]}, {"show": "GB", "acc": ["gb"]}, {"show": "TB", "acc": ["tb"]}], "unordered": false, "exp": "K＝2<sup>10</sup>、M＝2<sup>20</sup>、G＝2<sup>30</sup>、T＝2<sup>40</sup>，每一級差 1024 倍（約一千倍）。", "page": 18, "unit": "位元與數位化", "id": "2-fi-11"}, {"ch": 2, "type": "fill", "n": 12, "q": "偶數個 1 做 XOR 的結果為 {{}}。", "blanks": [{"show": "0", "acc": ["0", "零"]}], "unordered": false, "exp": "XOR 的數 1 規則：奇數個 1 → 1；偶數個 1 → 0。因為 1⊕1＝0，1 兩兩抵消。這也是錯誤檢驗位元（parity bit）的原理。", "page": 34, "unit": "布林代數與邏輯閘", "id": "2-fi-12"}, {"ch": 2, "type": "qa", "n": 1, "q": "以 UTF-16 為例，請查出你的中文名字的 Unicode。", "a": "示範「王小明」：王＝U+738B、小＝U+5C0F、明＝U+660E，UTF-16 依序存成 <code>738B 5C0F 660E</code>。<br>課本例子：「趙」的 UTF-16 是 <code>8D99</code>，UTF-8 是 <code>E8 B6 99</code>。", "exp": "查法：在 Word 輸入字後按 Alt+X；或搜尋「Unicode 查詢」；或在瀏覽器主控台輸入 <code>'王'.charCodeAt(0).toString(16)</code>。", "page": 31, "unit": "文字編碼", "id": "2-qa-1"}, {"ch": 2, "type": "qa", "n": 2, "q": "30 個位元可以有多少種組合？", "a": "2<sup>30</sup>＝<b>1,073,741,824</b> 種（約 10 億）。", "exp": "n 個位元有 2<sup>n</sup> 種組合。估算捷徑：2<sup>10</sup>≈10<sup>3</sup>，所以 2<sup>30</sup>≈10<sup>9</sup>。", "page": 16, "unit": "位元與數位化", "id": "2-qa-2"}, {"ch": 2, "type": "qa", "n": 3, "q": "需要至少多少個位元，才可以有六萬種以上的組合數？", "a": "<b>16 個</b>。因為 2<sup>15</sup>＝32,768 ＜ 60,000，而 2<sup>16</sup>＝65,536 ≥ 60,000。", "exp": "要表示 N 種東西，找最小的 n 使 2<sup>n</sup> ≥ N。", "page": 16, "unit": "位元與數位化", "id": "2-qa-3"}, {"ch": 2, "type": "qa", "n": 4, "q": "在電腦裡，我們需要處理的資料型態有哪些呢？", "a": "數字、文字、語音、音樂、圖形、影像、影片及動畫等。它們都會編碼成位元字串存在電腦裡，顯示或播放時再解碼回來。", "exp": "可順便舉例：影像切成像素記錄 0–255 灰度；CD 聲音每秒取樣約 44,100 次。", "page": 18, "unit": "位元與數位化", "id": "2-qa-4"}, {"ch": 2, "type": "qa", "n": 5, "q": "列舉數位化的資訊的好處有哪些？", "a": "<ul><li>方便編輯、處理、儲存、傳輸及播放</li><li>可用電腦整合不同媒體，精確安排播放順序、時間與設備</li><li>可利用電腦的處理與搜尋功能提供多媒體互動，加強虛擬實境的真實感</li><li>可透過網際網路即時傳送到世界各地</li><li>複製不失真</li></ul>", "exp": "寫出 3–4 點即可，用「編輯、整合、互動、傳送」四個關鍵字記。", "page": 18, "unit": "位元與數位化", "id": "2-qa-5"}, {"ch": 2, "type": "qa", "n": 6, "q": "為什麼二補數表示法會成為目前電腦表示整數最常用的方法呢？", "a": "<ul><li>二補數的 <b>0 只有一個</b>（00000000），不浪費組合，8 位元可表示 −128～127。</li><li>加法與減法可以用同一套加法電路完成：減法＝加上負數的二補數，最左邊的進位直接忽略，<b>數學運算容易數位化實現</b>。</li></ul>", "exp": "對照：帶正負符號大小與一補數都有兩個 0，而且加減法不直接。", "page": 26, "unit": "整數表示法", "id": "2-qa-6"}, {"ch": 2, "type": "qa", "n": 7, "q": "假設整數以二補數表示法儲存為 8 個位元，請執行 100−38 這個運算，並解釋為什麼在此最左邊的進位可以忽略掉。", "a": "+38＝00100110 → −38＝11011010；100＝01100100。<br><code>01100100 + 11011010 = <u>1</u> 00111110</code>，忽略最左進位得 00111110＝<b>62</b>。<br><b>解釋</b>：−38 的二補數數值上等於 2<sup>8</sup>−38，所以 100＋(2<sup>8</sup>−38)＝2<sup>8</sup>＋62。多出來的 2<sup>8</sup> 就是第 9 位的進位，超出 8 位元的範圍，丟掉後剩下的正是 62。", "exp": "記住本質：−x 的二補數位元字串＝2<sup>n</sup>−x。", "page": 26, "unit": "整數表示法", "id": "2-qa-7"}, {"ch": 2, "type": "qa", "n": 8, "q": "假設整數以二補數表示法儲存為 8 個位元，請以二補數表示法進行下列運算：a. 36+50　b. 50−36　c. −3−8　d. 50−80　e. 50+80　f. −50−80", "a": "<ul><li>a. 00100100＋00110010＝01010110＝<b>86</b></li><li>b. 00110010＋11011100＝<u>1</u>00001110＝<b>14</b></li><li>c. 11111101＋11111000＝<u>1</u>11110101＝<b>−11</b></li><li>d. 00110010＋10110000＝11100010＝<b>−30</b></li><li>e. 00110010＋01010000＝10000010：兩正得負，<b>溢位</b>（130＞127）</li><li>f. 11001110＋10110000＝<u>1</u>01111110：兩負得正，<b>溢位</b>（−130＜−128）</li></ul>", "exp": "溢位判斷：兩正相加結果符號位是 1，或兩負相加結果符號位是 0。一正一負相加永遠不會溢位。「最左有進位」不等於溢位。", "page": 26, "unit": "整數表示法", "id": "2-qa-8"}, {"ch": 2, "type": "qa", "n": 9, "q": "在 IEEE 單倍精準數表示法（32 位元）中，(a) 請估算最大的數可以表示成多大？(b) 0.0 會表示成怎樣的位元字串呢？", "a": "(a) 最大正數為 <code>0 11111110 11111111111111111111111</code>，數值 (2−2<sup>−23</sup>)×2<sup>127</sup> ≈ 2<sup>128</sup> ≈ <b>3.4×10<sup>38</sup></b>。<br>(b) <b>32 個 0</b>：<code>00000000000000000000000000000000</code>。", "exp": "指數全 1（11111111）保留給無限大與 NaN，所以最大正數的指數是 11111110（254−127＝127）；尾數全 1 表示 1.11…1₂＝2−2<sup>−23</sup>。", "page": 28, "unit": "浮點數", "id": "2-qa-9"}, {"ch": 2, "type": "qa", "n": 10, "q": "下面哪一個有最多的位元組數：0.08TB、100KB、2.8MB 及 13GB？", "a": "<b>0.08TB</b>。換成 GB 比較：0.08TB＝0.08×1024≈82GB ＞ 13GB ＞ 2.8MB ＞ 100KB。", "exp": "別被小數點騙了，先換成同一個單位再比。", "page": 18, "unit": "位元與數位化", "id": "2-qa-10"}, {"ch": 2, "type": "qa", "n": 11, "q": "請以六百進位表示十進位的一百萬。", "a": "600<sup>2</sup>＝360,000，600<sup>3</sup> 已超過一百萬，所以是三位數。<br>1,000,000 ÷ 360,000 ＝ 2 餘 280,000；280,000 ÷ 600 ＝ 466 餘 400。<br>答案：<b>(2)(466)(400)<sub>600</sub></b>。", "exp": "驗算：2×360000＋466×600＋400＝1,000,000。方法和轉二進位一樣：連續除以基數，餘數由下往上讀。", "page": 22, "unit": "進位制", "id": "2-qa-11"}, {"ch": 2, "type": "qa", "n": 12, "q": "某大富豪的資產有一百億，也就是 10,000,000,000。趙老一天的花費也差不多要 10,000,000,000，可惜是指二進位的 10,000,000,000₂，算起來只有 2<sup>10</sup>＝1024。請算一下十進位的 10,000,000,000 和二進位的 10,000,000,000₂ 差了多少倍？", "a": "二進位的 1 後面 10 個 0＝2<sup>10</sup>＝1024。<br>10,000,000,000 ÷ 1024 ＝ <b>9,765,625 倍</b>。", "exp": "10<sup>10</sup>÷2<sup>10</sup>＝5<sup>10</sup>＝9,765,625，用這個角度算更快。", "page": 18, "unit": "位元與數位化", "id": "2-qa-12"}, {"ch": 2, "type": "qa", "n": 13, "q": "請把 10110.100011 轉成 IEEE 754 標準的儲存格式。", "a": "<b>0 10000011 01101000110000000000000</b><ol><li>標準化：1.0110100011×2<sup>4</sup>，正數 → 符號 0</li><li>指數 4＋127＝131＝10000011</li><li>尾數 0110100011，補 0 到 23 位</li></ol>", "exp": "這就是課本範例 19。小數點左邊的 1 是隱藏位元，不用存。", "page": 28, "unit": "浮點數", "id": "2-qa-13"}, {"ch": 2, "type": "qa", "n": 14, "q": "請把這個 IEEE 754 標準格式 0 01111111 10000000000000000000000 的值算出來。", "a": "符號 0（正）；指數 01111111＝127，127−127＝0；值＝1.1₂×2<sup>0</sup>＝1＋0.5＝<b>1.5</b>。", "exp": "解碼三步：看符號 → 指數減 127 → 尾數前面補回隱藏的 1。", "page": 28, "unit": "浮點數", "id": "2-qa-14"}, {"ch": 3, "type": "fill", "n": 1, "q": "全球三大電腦展為 {{}}、{{}} 及 {{}}。", "blanks": [{"show": "德國漢諾威電腦展（CeBIT）", "acc": ["~cebit", "~漢諾威", "~hannover"]}, {"show": "台北國際電腦展（COMPUTEX TAIPEI）", "acc": ["~computex", "~台北"]}, {"show": "美國拉斯維加斯秋季電腦展（COMDEX FALL）", "acc": ["~comdex", "~拉斯維加斯", "~ces", "~消費電子展"]}], "unordered": true, "exp": "老師解答的第三個是 COMDEX FALL；新版投影片改成美國拉斯維加斯國際消費電子展（CES，每年一月），因為 COMDEX 已停辦。考試建議寫 COMDEX FALL，這裡兩種都算對。", "page": 47, "unit": "中央處理器", "id": "3-fi-1"}, {"ch": 3, "type": "fill", "n": 2, "q": "3C 是 {{}}、{{}} 及 {{}} 三個英文名詞的縮寫。", "blanks": [{"show": "Computer（電腦）", "acc": ["~computer", "~電腦"]}, {"show": "Communication（通訊）", "acc": ["~communication", "~通訊", "~通信"]}, {"show": "Consumer electronics（消費性電子產品）", "acc": ["~consumer", "~消費"]}], "unordered": true, "exp": "電腦、通訊、消費性電子產品。發展 3C 技術能提升生活品質、厚植產業潛力。", "page": 47, "unit": "中央處理器", "id": "3-fi-2"}, {"ch": 3, "type": "fill", "n": 3, "q": "在中央處理器和記憶體的連結架構裡，有一些用來傳輸電子訊號的傳輸工具，稱為匯流排（bus），包括：{{}}、{{}} 及 {{}}。", "blanks": [{"show": "控制匯流排（control bus）", "acc": ["~控制", "~control"]}, {"show": "位址匯流排（address bus）", "acc": ["~位址", "~地址", "~address"]}, {"show": "資料匯流排（data bus）", "acc": ["~資料", "~數據", "~data"]}], "unordered": true, "exp": "控制匯流排傳「命令」（讀或寫）、位址匯流排傳「門牌」（哪一格記憶體）、資料匯流排傳「貨物」（真正的內容）。", "page": 47, "unit": "中央處理器", "id": "3-fi-3"}, {"ch": 3, "type": "fill", "n": 4, "q": "介於 CPU 和記憶體間的 {{}}，它雖然比暫存器速度慢，但單位價格比較便宜，容量也比暫存器多很多；另一方面，它速度比主記憶體快，但單位價格比較貴，容量也比主記憶體少。", "blanks": [{"show": "快取記憶體（cache）", "acc": ["~快取", "~cache", "高速緩衝記憶體"]}], "unordered": false, "exp": "記憶體階層由快到慢：暫存器 ＞ 快取 ＞ 主記憶體 ＞ 硬碟。快取能緩解馮紐曼瓶頸。", "page": 49, "unit": "記憶體階層", "id": "3-fi-4"}, {"ch": 3, "type": "fill", "n": 5, "q": "主記憶體類別有兩種：{{}} 及 {{}}。", "blanks": [{"show": "RAM（隨機存取記憶體）", "acc": ["ram", "隨機存取記憶體", "~隨機存取"]}, {"show": "ROM（唯讀記憶體）", "acc": ["rom", "唯讀記憶體", "~唯讀"]}], "unordered": true, "exp": "RAM 可隨意改寫、關機資料消失；ROM 一般不能改寫、關機資料保留（存開機程式如 BIOS）。", "page": 49, "unit": "記憶體階層", "id": "3-fi-5"}, {"ch": 3, "type": "fill", "n": 6, "q": "以 16 個位元表示位址，最多可表示 {{}} 個位置。", "blanks": [{"show": "2¹⁶＝65,536", "acc": ["65536", "2^16", "2**16"]}], "unordered": false, "exp": "n 個位元的位址可表示 2<sup>n</sup> 個位置。反過來：32MB＝2<sup>25</sup> 個位置，需要 25 個位元。", "page": 49, "unit": "記憶體階層", "id": "3-fi-6"}, {"ch": 3, "type": "fill", "n": 7, "q": "USB 2.0 傳輸速度最高每秒可達 {{}}。", "blanks": [{"show": "480 Mb", "acc": ["~480"]}], "unordered": false, "exp": "USB 1.0：1.5 Mb、1.1：12 Mb、2.0：480 Mb、3.0：4.8 Gb。老師解答寫成 480MB，但投影片單位是 <b>Mb（百萬位元）</b>，大寫 B 是位元組，差 8 倍。", "page": 53, "unit": "匯流排與周邊", "id": "3-fi-7"}, {"ch": 3, "type": "fill", "n": 8, "q": "IEEE 1394 的資料傳輸速度是每秒 {{}}，新的 IEEE 1394b 規格，傳輸速度高達每秒 {{}}。", "blanks": [{"show": "400 Mb", "acc": ["~400"]}, {"show": "1 Gb（解答）／3.2 Gb（投影片）", "acc": ["1gb", "1g", "1", "1gbps", "~3.2", "1000mb"]}], "unordered": false, "exp": "IEEE 1394 又稱 FireWire（Apple）、i.Link（Sony）。老師解答寫 400MB、1GB；投影片寫 400 Mb、1394b 為 3.2 Gb。考試以老師解答為準，這裡兩種都算對。", "page": 53, "unit": "匯流排與周邊", "id": "3-fi-8"}, {"ch": 3, "type": "fill", "n": 9, "q": "鍵盤是輔助我們將訊息輸入電腦的重要輸入設備，它與主機板連接的介面規格主要為 {{}} 及 {{}}。", "blanks": [{"show": "PS2", "acc": ["ps2", "ps/2"]}, {"show": "USB", "acc": ["usb"]}], "unordered": true, "exp": "滑鼠的介面也是 PS2 與 USB。PS/2 插槽紫色接鍵盤、綠色接滑鼠。", "page": 53, "unit": "匯流排與周邊", "id": "3-fi-9"}, {"ch": 3, "type": "fill", "n": 10, "q": "滑鼠運作的原理有 {{}} 式及 {{}} 式。", "blanks": [{"show": "機械", "acc": ["機械", "機械式"]}, {"show": "光學", "acc": ["光學", "光學式", "光電"]}], "unordered": true, "exp": "機械式用腹部滾球帶動座標滾軸（會沾污垢要清潔）；光學式用發光體和感光器感應位置。", "page": 53, "unit": "匯流排與周邊", "id": "3-fi-10"}, {"ch": 3, "type": "fill", "n": 11, "q": "掃描器將掃描的文件以 {{}} 儲存。", "blanks": [{"show": "數位影像格式", "acc": ["~數位影像", "~影像", "~圖片", "~圖檔", "digitalimage"]}], "unordered": false, "exp": "掃描器把反射光轉成數位資料、組成數位影像，常見格式有 TIFF、BMP、GIF、PCX。解析度單位是 dpi。", "page": 53, "unit": "匯流排與周邊", "id": "3-fi-11"}, {"ch": 3, "type": "fill", "n": 12, "q": "磁性儲存裝置的基本原理，是利用某些物質可以 {{}} 的特性，將資料記錄下來。", "blanks": [{"show": "磁化", "acc": ["磁化", "被磁化"]}], "unordered": false, "exp": "磁性物質表面的每個點可以磁化成代表 0 或 1 的方向。硬碟、磁帶都用這個原理。", "page": 54, "unit": "儲存裝置", "id": "3-fi-12"}, {"ch": 3, "type": "fill", "n": 13, "q": "{{}} 是電腦儲存資料最重要的地方。", "blanks": [{"show": "硬碟", "acc": ["硬碟", "harddisk", "hdd", "硬盤"]}], "unordered": false, "exp": "程式與資料平時放在硬碟，執行時才載入主記憶體。固態硬碟（SSD）沒有圓形碟片，省電耐震但成本較高。", "page": 54, "unit": "儲存裝置", "id": "3-fi-13"}, {"ch": 3, "type": "fill", "n": 14, "q": "磁帶通常用來做 {{}}。", "blanks": [{"show": "備份", "acc": ["備份", "backup", "資料備份"]}], "unordered": false, "exp": "磁帶容量比硬碟大很多（動輒 TB），通常用來備份。另一種備份選擇是 RAID 磁碟陣列。", "page": 54, "unit": "儲存裝置", "id": "3-fi-14"}, {"ch": 3, "type": "fill", "n": 15, "q": "DVD 單面單層可儲存 {{}}，最高可儲存雙面雙層，達 {{}} 之多。", "blanks": [{"show": "4.7 GB", "acc": ["4.7gb", "4.7", "4.7g"]}, {"show": "17 GB", "acc": ["17gb", "17", "17g"]}], "unordered": false, "exp": "CD 是 650MB。DVD 單面單層 4.7GB、雙面雙層 17GB。", "page": 55, "unit": "儲存裝置", "id": "3-fi-15"}, {"ch": 3, "type": "fill", "n": 16, "q": "{{}} 的主要結構是縮小版的硬碟，一般家用電腦使用的是 3.5 吋硬碟，筆記型電腦通常用比較小的 2.5 吋硬碟，而它小到連 1 吋都不到！", "blanks": [{"show": "微型硬碟（MicroDrive；MD）", "acc": ["微型硬碟", "microdrive", "md", "微硬碟"]}], "unordered": false, "exp": "微型硬碟（MD）曾比記憶卡容量高一個等級，但隨記憶卡技術成熟已不再是它的專利。", "page": 55, "unit": "儲存裝置", "id": "3-fi-16"}, {"ch": 3, "type": "fill", "n": 17, "q": "{{}} 又稱大拇哥，意即和大拇指大小差不多，透過 USB 埠可以連到電腦上，進行存取動作，相當方便。", "blanks": [{"show": "隨身碟（Flash Disk）", "acc": ["隨身碟", "flashdisk", "usb隨身碟", "快閃隨身碟", "拇指碟"]}], "unordered": false, "exp": "隨身碟用快閃記憶體（EEPROM 家族），透過 USB 連接。", "page": 55, "unit": "儲存裝置", "id": "3-fi-17"}, {"ch": 3, "type": "fill", "n": 18, "q": "主記憶體、暫存器、快取記憶體的速度由慢到快分別為 {{}} ＜ {{}} ＜ {{}}。", "blanks": [{"show": "主記憶體", "acc": ["主記憶體", "主記憶", "ram", "記憶體"]}, {"show": "快取記憶體", "acc": ["快取記憶體", "快取", "cache"]}, {"show": "暫存器", "acc": ["暫存器", "register"]}], "unordered": false, "exp": "暫存器在 CPU 內最快；快取介於 CPU 和主記憶體之間；主記憶體最慢（但仍比硬碟快很多）。", "page": 50, "unit": "記憶體階層", "id": "3-fi-18"}, {"ch": 3, "type": "fill", "n": 19, "q": "在 CD 系列中，其單倍速每秒存取 {{}} KB。", "blanks": [{"show": "150", "acc": ["150"]}], "unordered": false, "exp": "CD 單倍速 150 KB/s；N 倍速＝N×150。", "page": 55, "unit": "儲存裝置", "id": "3-fi-19"}, {"ch": 3, "type": "fill", "n": 20, "q": "DVD 系列中，其單倍速每秒存取 {{}} KB。", "blanks": [{"show": "1350", "acc": ["1350"]}], "unordered": false, "exp": "DVD 單倍速約 1350 KB/s，是 CD 的 9 倍。", "page": 55, "unit": "儲存裝置", "id": "3-fi-20"}, {"ch": 3, "type": "qa", "n": 1, "q": "請解釋「馮紐曼模式」（von Neumann Model）的架構。", "a": "當今計算機的通用架構是馮紐曼模式，主要有四大子系統：<b>記憶體、算術邏輯單元（ALU）、控制單元（CU）及輸入／輸出</b>，其中 ALU 與 CU 合稱 CPU。核心精神是<b>儲存程式</b>：程式與資料都存在記憶體中，執行不同工作只要載入不同程式，不必改變硬體。", "exp": "比喻：記憶體是食譜架加冰箱（食譜＝程式、食材＝資料都在這裡），控制單元是主廚，ALU 是工作台，輸入是點菜單、輸出是出菜口。", "page": 13, "unit": "馮紐曼架構", "id": "3-qa-1"}, {"ch": 3, "type": "qa", "n": 2, "q": "請解釋摩爾定律（Moore's Law），並到網路搜尋相關資料，做一個歷史分析。", "a": "Intel 創辦人之一 Gordon Moore 提出：<b>積體電路上的電晶體數量大約每兩年倍增</b>，處理器功能倍增而價格不變（或同功能價格減半）。<br>歷史：1971 年 Intel 4004 約 2,300 個電晶體，今日處理器已達數百億個，大致符合指數成長，解釋了電腦為何越來越快、越來越便宜。近年因電晶體尺寸逼近物理極限、製造成本飆升，成長趨緩，產業改以多核心、3D 堆疊、小晶片（chiplet）延續效能提升。", "exp": "定義＋一個具體數字（4004 的 2,300 個電晶體）＋現況（趨緩），就是完整的歷史分析。", "page": 47, "unit": "中央處理器", "id": "3-qa-2"}, {"ch": 3, "type": "qa", "n": 3, "q": "請解釋整個 CPU 的架構。", "a": "CPU 是計算機的大腦，是一個電路極為複雜的晶片，用來<b>執行儲存在記憶體的程式指令</b>，控制數位資料的處理及運算。主要有兩部分：<b>控制單元（CU）</b>與<b>算術邏輯單元（ALU）</b>；另有極小的儲存裝置<b>暫存器</b>，可暫時存放指令或資料。CPU 透過控制、位址、資料三種匯流排與記憶體相連。", "exp": "CU 負責指揮協調（擷取、解碼、交給 ALU、存回結果）；ALU 負責加減乘除與 AND／OR／XOR／NOT。", "page": 47, "unit": "中央處理器", "id": "3-qa-3"}, {"ch": 3, "type": "qa", "n": 4, "q": "CPU 的暫存器有何作用？", "a": "暫存器位於 CPU 內，用來<b>暫時存放指令或資料</b>，存取速度比主記憶體快，可大幅提高 CPU 效能。例如：<ul><li>指令暫存器（IR）：存放目前執行的指令</li><li>程式指標暫存器（PC）：記錄目前程式執行的指令位址</li></ul>", "exp": "暫存器就是把好幾個 D-latch 並排做成的（講義第三部）。", "page": 47, "unit": "中央處理器", "id": "3-qa-4"}, {"ch": 3, "type": "qa", "n": 5, "q": "請解釋 AND、OR、XOR 及 NOT 等邏輯運算。", "a": "<ul><li><b>AND</b>：兩個輸入都是 1 結果才是 1</li><li><b>OR</b>：至少一個輸入是 1 結果就是 1</li><li><b>XOR</b>：兩個輸入不同為 1，相同為 0</li><li><b>NOT</b>：單一輸入取反，0 變 1、1 變 0</li></ul>這些由 ALU 執行，用來操作位元（例如遮罩）以及判斷程式流程的條件（大於、等於、小於）。", "exp": "可附上真值表。遮罩用法：AND 清除、OR 設定、XOR 反轉指定位元。", "page": 34, "unit": "布林代數與邏輯閘", "id": "3-qa-5"}, {"ch": 3, "type": "qa", "n": 6, "q": "請說明一下 DRAM 及 SRAM 的異同。", "a": "<b>相同</b>：都是 RAM，可隨機讀寫，關機後資料消失。<br><b>不同</b>：<ul><li>SRAM 以<b>正反器</b>儲存，有電就不需更新（靜態），速度快（約 DRAM 4 倍以上），貴、容量小，常用於快取</li><li>DRAM 以<b>電容器</b>儲存，電容會漏電須週期性更新（動態），較慢但便宜，同面積容量是 SRAM 4 倍以上，常用於主記憶體</li></ul>", "exp": "比喻：DRAM 像會慢慢漏水的小水桶，要不時加滿；SRAM 像開關，扳到哪就停在哪。", "page": 50, "unit": "記憶體階層", "id": "3-qa-6"}, {"ch": 3, "type": "qa", "n": 7, "q": "何謂馮紐曼瓶頸（Von Neumann Bottleneck）？", "a": "在馮紐曼架構中，程式與資料都存在記憶體，CPU 必須透過匯流排反覆讀取。<b>不論 CPU 與記憶體的速度有多快，整個系統的速度終將受限於匯流排的速度</b>，這就是馮紐曼瓶頸。可用快取記憶體或哈佛架構緩解。", "exp": "和 CH1 問答 2 同一個觀念。CH3 的說法特別強調「匯流排的速度」。", "page": 50, "unit": "記憶體階層", "id": "3-qa-7"}, {"ch": 3, "type": "qa", "n": 8, "q": "CPU 到底如何執行程式指令呢？", "a": "CPU 的程式指標暫存器（PC）記錄目前執行的程式位置，讓 CPU 每次都能抓到正確的指令。<ol><li><b>擷取（fetch）</b>：控制單元依 PC 從記憶體擷取指令，放進指令暫存器</li><li><b>解碼（decode）</b>：以查表法對指令的二位元字串解碼，找出對應的運算</li><li><b>執行（execute）</b>：交給 ALU 執行，結果再由控制單元存回記憶體</li></ol>完成後重複同樣流程處理下一個指令。", "exp": "比喻：看食譜下一行（擷取）→ 弄懂「切丁」是什麼（解碼）→ 真的動刀（執行）。PC 就是指著食譜那一行的手指。", "page": 51, "unit": "執行程式", "id": "3-qa-8"}, {"ch": 3, "type": "qa", "n": 9, "q": "請概述 CPU 執行時所採用生產線技術。", "a": "為提升效率，<b>當 ALU 正在執行一個指令時，控制單元同時開始擷取下一個指令</b>，讓不同指令的擷取、解碼、執行階段重疊進行，如同汽車工廠的生產線（pipeline）：每一站完成後交給下一站，同時接著處理下一部車。這稱為生產線技術，可大幅提升 CPU 執行效率。", "exp": "3 個指令、每個 3 階段：沒有生產線要 9 個時間單位，有生產線只要 5 個。每個指令本身沒變快，但同時有好幾個在進行。", "page": 51, "unit": "執行程式", "id": "3-qa-9"}, {"ch": 3, "type": "qa", "n": 10, "q": "請解釋 dpi 這個解析度單位。", "a": "dpi（dots per inch）是<b>每英吋的點數</b>：掃描器以每英吋<b>取樣</b>的點數、印表機以每英吋<b>列印</b>的點數表示解析度。dpi 越高，影像越精細，所需儲存空間也越大。", "exp": "和 CH2「解析度不夠會出現鋸齒」是同一件事。", "page": 53, "unit": "匯流排與周邊", "id": "3-qa-10"}, {"ch": 3, "type": "qa", "n": 11, "q": "列舉印表機的種類。", "a": "點矩陣印表機、噴墨式印表機、雷射印表機、熱轉印印表機、噴蠟印表機；另有多功能（四合一：印表、傳真、影印、掃描）印表機、相片印表機、迷你印表機。", "exp": "前五種是課本列出的基本分類，一定要寫到。", "page": 53, "unit": "匯流排與周邊", "id": "3-qa-11"}, {"ch": 3, "type": "qa", "n": 12, "q": "CD 系列的 16 倍速（16x）和 DVD 系列的 16 倍速（16x）的速率各代表每秒多少位元組呢？", "a": "<ul><li>CD 16 倍速：16×150＝<b>每秒 2400 KB</b></li><li>DVD 16 倍速：16×1350＝<b>每秒 21600 KB</b></li></ul>", "exp": "N 倍速＝N×單倍速。同樣叫 16 倍速，DVD 快了 9 倍。", "page": 55, "unit": "儲存裝置", "id": "3-qa-12"}];
+const byId = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
+const TYPE_NAME = {tf:"是非", mc:"選擇", fill:"填充", table:"填充", qa:"問答"};
+const tkey = q => q.type === "table" ? "fill" : q.type;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- 儲存 ---------- */
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let progress = LS.get("quiz.progress", {});           // id -> {r:1|0, a:次數, w:錯次, t:時間}
+let settings = Object.assign({ch:[1,2,3], types:["tf","mc","fill","qa"], filter:"all", order:"seq"}, LS.get("quiz.settings", {}));
+let round = LS.get("quiz.round", null);               // {ids, i, res:{id:{ok,resp}}, done}
+let view = "home";
+
+/* ---------- 同步到帳號（db） ---------- */
+const sync = {ref:null, writing:false, dirty:false, timer:null};
+function setSync(state, text, title){
+  const el = $("#sync"); el.className = "sync " + state; $("#syncText").textContent = text; el.title = title;
+}
+function mergeProgress(a, b){
+  const out = Object.assign({}, a);
+  for (const [id, v] of Object.entries(b || {})) if (!out[id] || (v && v.t > out[id].t)) out[id] = v;
+  return out;
+}
+function saveProgress(){
+  LS.set("quiz.progress", progress);
+  if (!sync.ref) return;
+  clearTimeout(sync.timer);
+  sync.timer = setTimeout(pushRemote, 1200);
+}
+async function pushRemote(){
+  if (!sync.ref) return;
+  if (sync.writing){ sync.dirty = true; return; }
+  sync.writing = true; setSync("busy", "同步中…", "正在把作答紀錄存到你的帳號");
+  try{
+    await sync.ref.set({v:1, p:progress, updatedAt:Date.now()});
+    setSync("on", "已同步到帳號", "作答紀錄存在你的帳號，換裝置也能接著刷");
+  }catch(e){
+    if (e && e.code === "unavailable"){ sync.dirty = true; }
+    else { sync.ref = null; setSync("", "存在這台裝置", "無法存到帳號，作答紀錄只存在這台裝置的瀏覽器"); }
+  }
+  sync.writing = false;
+  if (sync.dirty && sync.ref){ sync.dirty = false; setTimeout(pushRemote, 1500); }
+}
+async function initSync(){
+  if (!window.claude || typeof window.claude.use !== "function") return;
+  try{
+    const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    const uid = user ? await user.id() : null;
+    if (!db || !uid) return;
+    const ref = db.collection("data/users/" + uid).doc("progress");
+    setSync("busy", "同步中…", "正在讀取你帳號裡的作答紀錄");
+    const snap = await ref.get();
+    const remote = snap.exists ? (snap.data().p || {}) : {};
+    const merged = mergeProgress(progress, remote);
+    const changed = JSON.stringify(merged) !== JSON.stringify(remote);
+    progress = merged; LS.set("quiz.progress", progress);
+    sync.ref = ref;
+    setSync("on", "已同步到帳號", "作答紀錄存在你的帳號，換裝置也能接著刷");
+    if (changed && Object.keys(progress).length) pushRemote();
+    if (view === "home") renderHome();
+  }catch(e){
+    setSync("", "存在這台裝置", "無法連到帳號，作答紀錄只存在這台裝置的瀏覽器");
+  }
+}
+
+function record(id, ok){
+  const p = progress[id] || {a:0, w:0};
+  progress[id] = {r: ok ? 1 : 0, a: (p.a||0) + 1, w: (p.w||0) + (ok ? 0 : 1), t: Date.now()};
+  saveProgress();
+}
+function status(id){ const p = progress[id]; return !p ? "" : (p.r ? "ok" : "ng"); }
+
+/* ---------- 首頁 ---------- */
+const CH_NAME = {1:"計算機簡介", 2:"數位資料表示法", 3:"計算機組織"};
+const TYPES = [["tf","是非"],["mc","選擇"],["fill","填充"],["qa","問答"]];
+function renderHome(){
+  const all = QUESTIONS.map(q => status(q.id));
+  $("#kDone").textContent = all.filter(Boolean).length;
+  $("#kOk").textContent = all.filter(s => s === "ok").length;
+  $("#kNg").textContent = all.filter(s => s === "ng").length;
+
+  const board = $("#board"); board.innerHTML = "";
+  for (const ch of [1,2,3]){
+    const row = document.createElement("div"); row.className = "chrow";
+    row.innerHTML = `<div class="chlabel">CH${ch}<small>${CH_NAME[ch]}</small></div><div class="groups"></div>`;
+    const groups = row.querySelector(".groups");
+    for (const [tk, tn] of TYPES){
+      const qs = QUESTIONS.filter(q => q.ch === ch && tkey(q) === tk);
+      if (!qs.length) continue;
+      const g = document.createElement("div"); g.className = "grp";
+      g.innerHTML = `<span class="grp-name">${tn} ${qs.length}</span><div class="holes"></div>`;
+      const holes = g.querySelector(".holes");
+      qs.forEach((q, i) => {
+        const b = document.createElement("button");
+        const st = status(q.id);
+        b.type = "button"; b.className = "hole " + st;
+        const label = `CH${ch} ${tn} ${q.n}` + (st === "ok" ? "（答對）" : st === "ng" ? "（答錯）" : "（沒做過）");
+        b.title = label; b.setAttribute("aria-label", label);
+        b.onclick = () => startRound(qs.map(x => x.id), i);
+        holes.appendChild(b);
+      });
+      groups.appendChild(g);
+    }
+    board.appendChild(row);
+  }
+
+  const cs = $("#chstats"); cs.innerHTML = "";
+  for (const ch of [1,2,3]){
+    const qs = QUESTIONS.filter(q => q.ch === ch);
+    const ok = qs.filter(q => status(q.id) === "ok").length, ng = qs.filter(q => status(q.id) === "ng").length;
+    const d = document.createElement("div"); d.className = "chstat";
+    d.innerHTML = `<h3>CH${ch} · ${CH_NAME[ch]}</h3><p>${qs.length} 題｜答對 ${ok}｜答錯 ${ng}｜沒做 ${qs.length-ok-ng}</p>
+      <div class="bar"><i class="b-ok" style="width:${ok/qs.length*100}%"></i><i class="b-ng" style="width:${ng/qs.length*100}%"></i></div>`;
+    cs.appendChild(d);
+  }
+  renderSettings();
+  const ngCount = all.filter(s => s === "ng").length;
+  $("#wrongBtn").textContent = `只練錯題本（${ngCount}）`;
+  $("#wrongBtn").disabled = ngCount === 0;
+  const r = $("#resumeBtn");
+  if (round && !round.done && round.ids.length){ r.hidden = false; r.textContent = `繼續上一輪（第 ${round.i+1} / ${round.ids.length} 題）`; }
+  else r.hidden = true;
+}
+function pool(){
+  let qs = QUESTIONS.filter(q => settings.ch.includes(q.ch) && settings.types.includes(tkey(q)));
+  if (settings.filter === "new") qs = qs.filter(q => !progress[q.id]);
+  if (settings.filter === "wrong") qs = qs.filter(q => status(q.id) === "ng");
+  return qs;
+}
+function chipGroup(el, items, isOn, onToggle){
+  el.innerHTML = "";
+  for (const it of items){
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.setAttribute("aria-pressed", isOn(it.v) ? "true" : "false");
+    b.innerHTML = esc(it.label) + (it.n != null ? `<span class="n">${it.n}</span>` : "");
+    b.onclick = () => { onToggle(it.v); LS.set("quiz.settings", settings); renderSettings(); };
+    el.appendChild(b);
+  }
+}
+function toggleIn(arr, v){ const i = arr.indexOf(v); if (i >= 0){ if (arr.length > 1) arr.splice(i,1); } else arr.push(v); }
+function renderSettings(){
+  chipGroup($("#fCh"), [1,2,3].map(c => ({v:c, label:`CH${c}`, n:QUESTIONS.filter(q => q.ch === c).length})),
+    v => settings.ch.includes(v), v => toggleIn(settings.ch, v));
+  chipGroup($("#fType"), TYPES.map(([v,l]) => ({v, label:l, n:QUESTIONS.filter(q => tkey(q) === v && settings.ch.includes(q.ch)).length})),
+    v => settings.types.includes(v), v => toggleIn(settings.types, v));
+  chipGroup($("#fFilter"), [{v:"all",label:"全部"},{v:"new",label:"沒做過的"},{v:"wrong",label:"上次答錯的"}],
+    v => settings.filter === v, v => { settings.filter = v; });
+  chipGroup($("#fOrder"), [{v:"seq",label:"依題號"},{v:"rand",label:"隨機打亂"}],
+    v => settings.order === v, v => { settings.order = v; });
+  const n = pool().length;
+  const s = $("#startBtn"); s.textContent = n ? `開始刷題（${n} 題）` : "沒有符合條件的題目"; s.disabled = !n;
+}
+
+/* ---------- 回合 ---------- */
+function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function startRound(ids, at){
+  round = {ids, i: at || 0, res: {}, done: false};
+  LS.set("quiz.round", round); show("practice"); renderQ();
+}
+function show(v){
+  view = v;
+  $("#vHome").hidden = v !== "home"; $("#vPractice").hidden = v !== "practice"; $("#vSummary").hidden = v !== "summary";
+  if (v === "home") renderHome();
+  window.scrollTo({top:0});
+}
+function setResult(id, ok, resp, countIt = true){
+  round.res[id] = {ok, resp};
+  if (countIt) record(id, ok);
+  LS.set("quiz.round", round);
+  updateBar();
+}
+function updateBar(){
+  const n = round.ids.length;
+  $("#pos").textContent = `${round.i + 1} / ${n}`;
+  $("#trackFill").style.width = (Object.keys(round.res).length / n * 100) + "%";
+  const vals = Object.values(round.res);
+  $("#sOk").textContent = "○ " + vals.filter(r => r.ok).length;
+  $("#sNg").textContent = "× " + vals.filter(r => !r.ok).length;
+  $("#prevBtn").disabled = round.i === 0;
+  $("#nextBtn").textContent = round.i === n - 1 ? "看結算 →" : "下一題 →";
+}
+
+/* ---------- 批改 ---------- */
+function norm(s){
+  s = String(s || "").trim();
+  s = s.replace(/[₀-₉]+$/, "");
+  s = s.replace(/[\(（]\s*(2|8|10|16)\s*[\)）]\s*$/, "").replace(/_\{?(2|8|10|16)\}?$/, "");
+  s = s.normalize("NFKC").toLowerCase();
+  s = s.replace(/\s+/g, "").replace(/[()「」『』【】、，,:;。'"`’‘“”<>→\-_/|]/g, "");
+  return s;
+}
+const OVERFLOW = ["溢位","overflow","溢出","無法表示","不能表示"];
+function match(input, acc){
+  const n = norm(input); if (!n) return false;
+  return acc.some(a => a.startsWith("~") ? n.includes(norm(a.slice(1))) : n === norm(a));
+}
+
+/* ---------- 題目渲染 ---------- */
+function metaHtml(q){
+  return `<div class="meta"><span class="tag ${q.type}">CH${q.ch} · ${TYPE_NAME[q.type]} ${q.n}</span><span>${esc(q.unit)}</span><span>講義 p.${q.page}</span></div>`;
+}
+function renderQ(){
+  const id = round.ids[round.i], q = byId[id], res = round.res[id];
+  const st = $("#stage"); st.innerHTML = "";
+  updateBar();
+  if (q.type === "qa") return renderQA(q, res, st);
+  const card = document.createElement("article"); card.className = "qcard";
+  card.innerHTML = metaHtml(q);
+  if (q.type === "tf" || q.type === "mc") renderChoice(q, res, card);
+  else if (q.type === "fill") renderFill(q, res, card);
+  else renderTable(q, res, card);
+  st.appendChild(card);
+  const first = card.querySelector("input:not([disabled])");
+  if (first && !res) first.focus({preventScroll:true});
+}
+function feedback(ok, verdict, correctHtml, q, extra){
+  const d = document.createElement("section");
+  d.className = "fb " + (ok ? "ok" : "ng"); d.setAttribute("role", "status");
+  d.innerHTML = `<div class="verdict">${ok ? "○ 答對了" : "× 答錯了"}${verdict ? `<span style="font-weight:500;font-size:.92rem">${verdict}</span>` : ""}</div>`
+    + (correctHtml ? `<div class="correct">${correctHtml}</div>` : "")
+    + `<div class="why"><h4>為什麼是這個答案</h4><p class="exp">${q.exp}</p></div>`
+    + (extra || "")
+    + `<div class="ref">複習：講義 p.${q.page} · ${esc(q.unit)}</div>`;
+  return d;
+}
+
+/* 是非、選擇 */
+function renderChoice(q, res, card){
+  const isTF = q.type === "tf";
+  const opts = isTF ? ["正確","錯誤"] : q.opts;
+  const ans = isTF ? (q.ans ? 0 : 1) : q.ans;
+  const p = document.createElement("p"); p.className = "qtext"; p.innerHTML = q.q; card.appendChild(p);
+  const box = document.createElement("div"); box.className = "opts" + (isTF ? " tfopts" : "");
+  opts.forEach((o, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "opt"; b.dataset.i = i;
+    const k = isTF ? (i === 0 ? "○" : "×") : "ABCD"[i];
+    b.innerHTML = `<span class="k">${k}</span><span class="t">${isTF ? o : `(${k}) ${o}`}</span>`;
+    b.onclick = () => { if (!round.res[q.id]) { setResult(q.id, i === ans, i); renderQ(); } };
+    box.appendChild(b);
+  });
+  card.appendChild(box);
+  if (res){
+    box.querySelectorAll(".opt").forEach((b, i) => {
+      b.disabled = true;
+      if (i === ans) b.classList.add("right");
+      else if (i === res.resp) b.classList.add("wrong");
+      else b.classList.add("dim");
+      if (!isTF && q.why[i]){ const w = document.createElement("span"); w.className = "w"; w.innerHTML = q.why[i]; b.appendChild(w); }
+    });
+    const ansLabel = isTF ? (q.ans ? "○（正確）" : "×（錯誤）") : `(${"ABCD"[ans]}) ${q.opts[ans]}`;
+    const verdict = res.ok ? "" : (isTF ? `這句話是${q.ans ? "對的" : "錯的"}` : `正確答案是 (${"ABCD"[ans]})`);
+    const extra = (!isTF && !res.ok) ? `<div class="why"><h4>你選的 (${"ABCD"[res.resp]}) 為什麼不對</h4><p class="exp">${q.why[res.resp]}</p></div>` : "";
+    card.appendChild(feedback(res.ok, verdict, `正確答案：<b>${ansLabel}</b>`, q, extra));
+  }
+}
+
+/* 填充 */
+function renderFill(q, res, card){
+  const p = document.createElement("p"); p.className = "qtext";
+  let k = 0;
+  p.innerHTML = q.q.replace(/\{\{\}\}/g, () => { const j = k++; return `<input class="blank" id="b-${q.id}-${j}" aria-label="第 ${j+1} 格" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">`; });
+  card.appendChild(p);
+  const inputs = [...p.querySelectorAll("input.blank")];
+  inputs.forEach((inp, j) => {
+    inp.addEventListener("keydown", e => {
+      if (e.key === "Enter"){ e.preventDefault(); if (round.res[q.id]) return next();
+        if (j < inputs.length - 1 && !inputs[j+1].value) inputs[j+1].focus(); else submitFill(q, inputs); }
+    });
+  });
+  if (!res){
+    const act = document.createElement("div"); act.className = "actions";
+    act.innerHTML = `<button class="btn primary" type="button">對答案 <kbd>Enter</kbd></button><button class="btn" type="button">不會，直接看答案</button>`;
+    const [chk, giveup] = act.querySelectorAll("button");
+    chk.onclick = () => submitFill(q, inputs);
+    giveup.onclick = () => { setResult(q.id, false, inputs.map(i => i.value)); renderQ(); };
+    card.appendChild(act);
+    return;
+  }
+  const vals = res.resp || [];
+  inputs.forEach((inp, j) => { inp.value = vals[j] || ""; inp.disabled = true; });
+  const marks = gradeFill(q, vals);
+  inputs.forEach((inp, j) => inp.classList.add(marks[j] || res.ok ? "ok" : "ng"));
+  const shows = q.blanks.map(b => b.show);
+  const correct = "正確答案：" + shows.map((s, j) => `${shows.length > 1 ? "①②③④"[j] + " " : ""}<b>${esc(s)}</b>`).join("　") + (q.unordered ? "（順序不拘）" : "");
+  const fb = feedback(res.ok, "", correct, q);
+  if (!res.ok && vals.some(v => v && v.trim())){
+    const o = document.createElement("button"); o.type = "button"; o.className = "override";
+    o.textContent = "判定有誤？這題算我對";
+    o.onclick = () => { overrideOk(q.id); };
+    fb.insertBefore(o, fb.querySelector(".ref"));
+  }
+  card.appendChild(fb);
+}
+function gradeFill(q, vals){
+  if (!q.unordered) return q.blanks.map((b, j) => match(vals[j], b.acc));
+  const used = new Set();
+  return vals.map(v => { const k = q.blanks.findIndex((b, j) => !used.has(j) && match(v, b.acc)); if (k >= 0){ used.add(k); return true; } return false; });
+}
+function submitFill(q, inputs){
+  if (round.res[q.id]) return;
+  const vals = inputs.map(i => i.value);
+  if (vals.every(v => !v.trim())){ inputs[0].focus(); return; }
+  const marks = gradeFill(q, vals);
+  setResult(q.id, marks.every(Boolean), vals); renderQ();
+}
+function overrideOk(id){
+  const r = round.res[id]; r.ok = true;
+  const p = progress[id]; if (p){ p.r = 1; p.w = Math.max(0, (p.w||1) - 1); p.t = Date.now(); saveProgress(); }
+  LS.set("quiz.round", round); renderQ();
+}
+
+/* 表格填充 */
+function cellAcc(cell){ return cell.includes("溢位") ? OVERFLOW : cell; }
+function renderTable(q, res, card){
+  const p = document.createElement("p"); p.className = "qtext"; p.innerHTML = q.q; card.appendChild(p);
+  const wide = q.cols.length === 1;
+  const wrap = document.createElement("div"); wrap.className = "tblwrap";
+  let h = `<table class="ft${wide ? " wide" : ""}"><thead><tr><th>十進位</th>${q.cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>`;
+  q.rows.forEach((r, i) => {
+    h += `<tr><td>${esc(r.label)}</td>` + r.cells.map((c, j) => `<td><input id="t-${q.id}-${i}-${j}" aria-label="${esc(r.label)} ${esc(q.cols[j])}" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="${c.includes("溢位") ? "text" : "text"}"></td>`).join("") + `</tr>`;
+  });
+  wrap.innerHTML = h + "</tbody></table>";
+  card.appendChild(wrap);
+  const inputs = [...wrap.querySelectorAll("input")];
+  inputs.forEach((inp, k) => inp.addEventListener("keydown", e => {
+    if (e.key === "Enter"){ e.preventDefault(); if (round.res[q.id]) return next(); if (k < inputs.length - 1) inputs[k+1].focus(); else submitTable(q, inputs); }
+  }));
+  if (!res){
+    const act = document.createElement("div"); act.className = "actions";
+    act.innerHTML = `<button class="btn primary" type="button">對答案</button><button class="btn" type="button">不會，直接看答案</button><span class="note">每格按 Enter 跳下一格</span>`;
+    const [chk, giveup] = act.querySelectorAll("button");
+    chk.onclick = () => submitTable(q, inputs);
+    giveup.onclick = () => { setResult(q.id, false, inputs.map(i => i.value)); renderQ(); };
+    card.appendChild(act);
+    return;
+  }
+  const vals = res.resp || [];
+  let k = 0, okCount = 0, total = 0;
+  q.rows.forEach((r, i) => r.cells.forEach((c, j) => {
+    const inp = inputs[k]; inp.value = vals[k] || ""; inp.disabled = true;
+    const ok = match(vals[k], cellAcc(c)); total++; if (ok) okCount++;
+    inp.classList.add(ok ? "ok" : "ng");
+    if (!ok){ const s = document.createElement("span"); s.className = "cellans"; s.textContent = c.join("　或　"); inp.parentNode.appendChild(s); }
+    k++;
+  }));
+  card.appendChild(feedback(res.ok, `${okCount} / ${total} 格正確`, res.ok ? "" : "答錯的格子下方已標出正確答案（綠字）。", q));
+}
+function submitTable(q, inputs){
+  if (round.res[q.id]) return;
+  const vals = inputs.map(i => i.value);
+  if (vals.every(v => !v.trim())){ inputs[0].focus(); return; }
+  let k = 0, all = true;
+  q.rows.forEach(r => r.cells.forEach(c => { if (!match(vals[k++], cellAcc(c))) all = false; }));
+  setResult(q.id, all, vals); renderQ();
+}
+
+/* 問答：單字卡 */
+function renderQA(q, res, st){
+  const flip = document.createElement("div"); flip.className = "flip" + (res || round.flipped === q.id ? " on" : "");
+  flip.innerHTML = `<div class="flip-in">
+    <div class="face front" tabindex="0" role="button" aria-label="翻面看參考答案">${metaHtml(q)}<p class="qtext">${q.q}</p>
+      <div class="hint">先在心裡（或紙上）答一遍，再點一下卡片翻面（鍵盤：空白鍵）</div></div>
+    <div class="face back">${metaHtml(q)}<p class="qtext" style="font-size:1rem;color:var(--muted)">${q.q}</p>
+      <h4>參考答案</h4><div class="ans">${q.a}</div>
+      <h4>為什麼這樣答・記憶要點</h4><p class="exp">${q.exp}</p>
+      <div class="ref">複習：講義 p.${q.page} · ${esc(q.unit)}</div>
+      <div class="selfgrade"></div></div></div>`;
+  st.appendChild(flip);
+  const front = flip.querySelector(".front");
+  const doFlip = () => { round.flipped = q.id; flip.classList.add("on"); flip.querySelector(".back").focus?.(); };
+  front.onclick = doFlip;
+  front.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); doFlip(); } });
+  const sg = flip.querySelector(".selfgrade");
+  if (!res){
+    sg.innerHTML = `<button class="btn" type="button" style="justify-content:center;color:var(--bad)">× 還不熟 <kbd>2</kbd></button><button class="btn primary" type="button" style="justify-content:center">○ 我會了 <kbd>1</kbd></button>`;
+    const [no, yes] = sg.querySelectorAll("button");
+    no.onclick = () => gradeQA(q, false); yes.onclick = () => gradeQA(q, true);
+  } else {
+    sg.innerHTML = `<div class="fb ${res.ok ? "ok" : "ng"}" style="grid-column:1/-1"><div class="verdict">${res.ok ? "○ 已標記為會了" : "× 已標記為還不熟，會放進錯題本"}</div></div>`;
+  }
+  if (!flip.classList.contains("on")) front.focus({preventScroll:true});
+}
+function gradeQA(q, ok){ if (round.res[q.id]) return; setResult(q.id, ok, null); renderQ(); }
+
+/* ---------- 前後題、結算 ---------- */
+function next(){
+  if (!round) return;
+  if (round.i < round.ids.length - 1){ round.i++; round.flipped = null; LS.set("quiz.round", round); renderQ(); window.scrollTo({top:0}); }
+  else finish();
+}
+function prev(){ if (round && round.i > 0){ round.i--; round.flipped = null; LS.set("quiz.round", round); renderQ(); window.scrollTo({top:0}); } }
+function finish(){
+  round.done = true; LS.set("quiz.round", round);
+  const ids = round.ids, res = round.res;
+  const answered = ids.filter(id => res[id]), ok = answered.filter(id => res[id].ok);
+  $("#sumScore").textContent = `${ok.length} / ${ids.length}`;
+  const skipped = ids.length - answered.length;
+  $("#sumText").textContent = `答對 ${ok.length} 題、答錯 ${answered.length - ok.length} 題` + (skipped ? `、跳過 ${skipped} 題` : "") + "。答錯的題目已經放進錯題本。";
+  const wrongIds = ids.filter(id => res[id] && !res[id].ok);
+  const rb = $("#retryWrongBtn"); rb.disabled = !wrongIds.length; rb.textContent = wrongIds.length ? `再練這輪錯的 ${wrongIds.length} 題` : "這輪全對！";
+  rb.onclick = () => startRound(wrongIds, 0);
+  const ul = $("#sumList"); ul.innerHTML = "";
+  ids.forEach((id, i) => {
+    const q = byId[id], r = res[id];
+    const li = document.createElement("li");
+    const plain = q.q.replace(/<[^>]+>/g, "").replace(/\{\{\}\}/g, "＿＿");
+    li.innerHTML = `<span class="st ${r ? (r.ok ? "ok" : "ng") : ""}">${r ? (r.ok ? "○" : "×") : "–"}</span><span class="qq">${esc(plain.length > 70 ? plain.slice(0, 70) + "…" : plain)}</span><span class="mm">CH${q.ch} · ${TYPE_NAME[q.type]} ${q.n} · 講義 p.${q.page}</span>`;
+    li.style.cursor = "pointer"; li.title = "回到這一題";
+    li.onclick = () => { round.done = false; round.i = i; show("practice"); renderQ(); };
+    ul.appendChild(li);
+  });
+  show("summary");
+}
+
+/* ---------- 事件 ---------- */
+$("#startBtn").onclick = () => { const qs = pool().map(q => q.id); if (!qs.length) return; startRound(settings.order === "rand" ? shuffle(qs) : qs, 0); };
+$("#wrongBtn").onclick = () => { const qs = QUESTIONS.filter(q => status(q.id) === "ng").map(q => q.id); if (qs.length) startRound(settings.order === "rand" ? shuffle(qs) : qs, 0); };
+$("#resumeBtn").onclick = () => { show("practice"); renderQ(); };
+$("#exitBtn").onclick = () => show("home");
+$("#homeBtn").onclick = () => show("home");
+$("#nextBtn").onclick = next;
+$("#prevBtn").onclick = prev;
+let resetArmed = null;
+$("#resetBtn").onclick = () => {
+  const b = $("#resetBtn");
+  if (!resetArmed){ b.classList.add("armed"); b.textContent = "再按一次確定清除全部紀錄";
+    resetArmed = setTimeout(() => { b.classList.remove("armed"); b.textContent = "清除作答紀錄"; resetArmed = null; }, 4000); return; }
+  clearTimeout(resetArmed); resetArmed = null; b.classList.remove("armed"); b.textContent = "清除作答紀錄";
+  progress = {}; round = null; LS.set("quiz.round", null); saveProgress(); if (sync.ref) pushRemote(); renderHome();
+};
+document.addEventListener("keydown", e => {
+  if (view !== "practice" || !round) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea") return;
+  const q = byId[round.ids[round.i]], res = round.res[q.id], k = e.key.toLowerCase();
+  if (k === "arrowright"){ e.preventDefault(); return next(); }
+  if (k === "arrowleft"){ e.preventDefault(); return prev(); }
+  if (q.type === "qa"){
+    const flip = document.querySelector(".flip");
+    if (k === " " && flip){ e.preventDefault(); if (!flip.classList.contains("on")){ round.flipped = q.id; flip.classList.add("on"); } return; }
+    if (!res && flip && flip.classList.contains("on") && (k === "1" || k === "2")){ e.preventDefault(); return gradeQA(q, k === "1"); }
+    if (k === "enter" && res){ e.preventDefault(); return next(); }
+    return;
+  }
+  if (q.type === "tf" && !res && (k === "o" || k === "x" || k === "1" || k === "2")){
+    e.preventDefault(); const i = (k === "o" || k === "1") ? 0 : 1; setResult(q.id, i === (q.ans ? 0 : 1), i); return renderQ();
+  }
+  if (q.type === "mc" && !res){
+    const i = "1234".indexOf(k) >= 0 ? "1234".indexOf(k) : "abcd".indexOf(k);
+    if (i >= 0 && i < q.opts.length){ e.preventDefault(); setResult(q.id, i === q.ans, i); return renderQ(); }
+  }
+  if (k === "enter" && res && tag !== "button"){ e.preventDefault(); next(); }
+});
+
+/* ---------- 啟動 ---------- */
+function start(data){
+  if (data && data.round){ round = data.round; }
+  if (data && data.view === "practice" && round && !round.done){ show("practice"); renderQ(); }
+  else show("home");
+  initSync();
+}
+try{ window.claude?.hot?.snapshot?.(() => ({round, view})); }catch(e){}
+if (window.claude?.hot?.ready) window.claude.hot.ready(start); else start(window.claude?.hot?.data ?? {});
+</script>
+
+</body></html>
